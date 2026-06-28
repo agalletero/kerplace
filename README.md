@@ -1,7 +1,14 @@
 # KerPlace
 
-**An S3-compatible object storage server in Rust** — a self-hostable
-alternative to MinIO, with a built-in web console.
+**An S3-compatible object storage server in Rust** — with **post-quantum encryption at
+rest** and **off-host key custody**. A self-hostable, sovereign alternative to MinIO.
+
+[![CI](https://github.com/agalletero/kerplace/actions/workflows/ci.yml/badge.svg)](https://github.com/agalletero/kerplace/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/agalletero/kerplace?label=release&color=2ea44f)](https://github.com/agalletero/kerplace/releases/latest)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-db61a2?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/agalletero)
+
+🌐 **[www.kerplace.com](https://www.kerplace.com)** &nbsp;·&nbsp; 📦 **[Download v0.1.0 →](https://github.com/agalletero/kerplace/releases/latest)** &nbsp;·&nbsp; 💜 **[Sponsor the project →](https://github.com/sponsors/agalletero)**
 
 > **Status: v0.1 — honest about its limits.** The S3 data plane, post-quantum
 > at-rest encryption, erasure coding and the distributed cluster are working and
