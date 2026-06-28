@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="900" height="560" rx="14" fill="#ffffff"/>
+
+  <text x="450" y="34" text-anchor="middle" font-size="21" font-weight="700" fill="#0f172a">KerPlace in production — Tailscale overlay mesh</text>
+  <text x="450" y="56" text-anchor="middle" font-size="13" fill="#64748b">stable 100.x addresses · MagicDNS · gateway→drive RPC, bearer-authenticated &amp; tailnet-encrypted</text>
+
+  <!-- tailnet container -->
+  <rect x="30" y="78" width="840" height="384" rx="14" fill="#f0fdfa" stroke="#14b8a6" stroke-width="1.6" stroke-dasharray="7 5"/>
+  <text x="48" y="100" font-size="12.5" font-weight="700" fill="#0f766e">tailnet · 100.64.0.0/10 · MagicDNS names · ACL: only gateway → drive :9100</text>
+
+  <!-- gateway -->
+  <rect x="70" y="212" width="246" height="150" rx="11" fill="#eef2ff" stroke="#6366f1" stroke-width="2"/>
+  <text x="193" y="242" text-anchor="middle" font-size="15" font-weight="700" fill="#312e81">gateway · kerplace-gw</text>
+  <text x="193" y="263" text-anchor="middle" font-size="12" fill="#3730a3">100.64.0.10  (tailnet)</text>
+  <text x="193" y="284" text-anchor="middle" font-size="12" fill="#3730a3">S3 :9000 + web console</text>
+  <text x="193" y="305" text-anchor="middle" font-size="12" fill="#3730a3">ErasureStore · shard 0 local</text>
+  <text x="193" y="332" text-anchor="middle" font-size="11.5" fill="#6366f1">shards each object K+M across nodes</text>
+
+  <!-- drive nodes -->
+  <g>
+    <rect x="588" y="118" width="246" height="86" rx="9" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.7"/>
+    <text x="711" y="146" text-anchor="middle" font-size="13.5" font-weight="700" fill="#075985">drive · kerplace-n1 · shard 1</text>
+    <text x="711" y="166" text-anchor="middle" font-size="11.5" fill="#0369a1">100.64.0.11 · :9100</text>
+    <text x="711" y="184" text-anchor="middle" font-size="11" fill="#64748b">LocalDrive · xl.meta + part.1</text>
+  </g>
+  <g>
+    <rect x="588" y="226" width="246" height="86" rx="9" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.7"/>
+    <text x="711" y="254" text-anchor="middle" font-size="13.5" font-weight="700" fill="#075985">drive · kerplace-n2 · shard 2</text>
+    <text x="711" y="274" text-anchor="middle" font-size="11.5" fill="#0369a1">100.64.0.12 · :9100</text>
+    <text x="711" y="292" text-anchor="middle" font-size="11" fill="#64748b">LocalDrive · xl.meta + part.1</text>
+  </g>
+  <g>
+    <rect x="588" y="334" width="246" height="86" rx="9" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.7"/>
+    <text x="711" y="362" text-anchor="middle" font-size="13.5" font-weight="700" fill="#075985">drive · kerplace-n3 · shard 3</text>
+    <text x="711" y="382" text-anchor="middle" font-size="11.5" fill="#0369a1">100.64.0.13 · :9100</text>
+    <text x="711" y="400" text-anchor="middle" font-size="11" fill="#64748b">LocalDrive · xl.meta + part.1</text>
+  </g>
+
+  <!-- gateway -> drives -->
+  <path d="M316,262 C440,210 470,180 588,161" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <path d="M316,287 C440,280 470,272 588,269" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <path d="M316,312 C440,350 470,368 588,377" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <rect x="396" y="284" width="160" height="20" rx="6" fill="#ffffff"/>
+  <text x="476" y="298" text-anchor="middle" font-size="10.5" fill="#475569">drive RPC :9100 · bearer</text>
+
+  <!-- S3 client (apps can be on the tailnet too) -->
+  <rect x="70" y="484" width="200" height="58" rx="9" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="170" y="510" text-anchor="middle" font-size="13" font-weight="600" fill="#0f172a">S3 clients / apps</text>
+  <text x="170" y="528" text-anchor="middle" font-size="11" fill="#64748b">mc · aws · SDK · s3fs</text>
+  <path d="M170,484 L188,362" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="120" y="410" width="170" height="20" rx="6" fill="#ffffff"/>
+  <text x="205" y="424" text-anchor="middle" font-size="10.5" fill="#475569">S3 :9000 (tailnet or public)</text>
+
+  <!-- footer note -->
+  <rect x="300" y="484" width="570" height="58" rx="10" fill="#fffbeb" stroke="#fde68a" stroke-width="1.3"/>
+  <text x="316" y="506" font-size="11.5" fill="#334155">• Drive nodes never talk to each other — the gateway is the only caller, so a tailnet ACL of</text>
+  <text x="316" y="523" font-size="11.5" fill="#334155">  "gateway → drive:9100" is all you need. Bearer secret + WireGuard encryption = defense in depth.</text>
+  <text x="316" y="538" font-size="11" fill="#64748b">• Survives node reboots / changing public IPs / NAT — the 100.x address is stable.</text>
+</svg>

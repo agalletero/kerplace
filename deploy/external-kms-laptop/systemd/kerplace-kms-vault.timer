@@ -1,0 +1,12 @@
+[Unit]
+Description=Keep the KerPlace KMS Vault up and unsealed
+
+[Timer]
+# Run shortly after boot, then re-check every 2 minutes so a resealed Vault
+# (container restart) recovers automatically. Persistent catches missed runs.
+OnBootSec=20s
+OnUnitActiveSec=2min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

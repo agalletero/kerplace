@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="900" height="520" rx="14" fill="#ffffff"/>
+
+  <text x="450" y="36" text-anchor="middle" font-size="21" font-weight="700" fill="#0f172a">Hybrid post-quantum encryption — per object</text>
+  <text x="450" y="58" text-anchor="middle" font-size="13" fill="#64748b">the data cipher AND the key protection are both quantum-safe</text>
+
+  <!-- ===== DATA PATH ===== -->
+  <text x="40" y="100" font-size="13" font-weight="700" fill="#0f172a">1 · Protect the data</text>
+
+  <rect x="40" y="116" width="180" height="64" rx="9" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="130" y="144" text-anchor="middle" font-size="13.5" font-weight="600" fill="#0f172a">Your object</text>
+  <text x="130" y="164" text-anchor="middle" font-size="12" fill="#64748b">plaintext bytes</text>
+
+  <line x1="220" y1="148" x2="312" y2="148" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="316" y="116" width="208" height="64" rx="9" fill="#ecfdf5" stroke="#34d399"/>
+  <text x="420" y="142" text-anchor="middle" font-size="13.5" font-weight="700" fill="#166534">AES-256-GCM</text>
+  <text x="420" y="162" text-anchor="middle" font-size="11.5" fill="#166534">encrypt under the per-object DEK</text>
+
+  <line x1="524" y1="148" x2="616" y2="148" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="620" y="116" width="240" height="64" rx="9" fill="#0f172a"/>
+  <text x="740" y="144" text-anchor="middle" font-size="13.5" font-weight="700" fill="#ffffff">Ciphertext</text>
+  <text x="740" y="164" text-anchor="middle" font-size="11.5" fill="#cbd5e1">stored on disk — unreadable</text>
+
+  <text x="316" y="200" font-size="11.5" fill="#166534">symmetric — AES-256 stays strong against quantum computers</text>
+
+  <!-- ===== KEY PATH ===== -->
+  <text x="40" y="262" font-size="13" font-weight="700" fill="#0f172a">2 · Protect the key</text>
+
+  <rect x="40" y="278" width="180" height="64" rx="9" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="130" y="306" text-anchor="middle" font-size="13.5" font-weight="600" fill="#9a3412">DEK</text>
+  <text x="130" y="326" text-anchor="middle" font-size="12" fill="#c2410c">fresh random key, per object</text>
+
+  <line x1="220" y1="310" x2="312" y2="310" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="316" y="278" width="208" height="64" rx="9" fill="#ecfdf5" stroke="#34d399"/>
+  <text x="420" y="304" text-anchor="middle" font-size="13.5" font-weight="700" fill="#166534">ML-KEM-1024</text>
+  <text x="420" y="324" text-anchor="middle" font-size="11.5" fill="#166534">post-quantum key encapsulation</text>
+
+  <line x1="524" y1="310" x2="616" y2="310" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="620" y="278" width="240" height="64" rx="9" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="740" y="304" text-anchor="middle" font-size="13.5" font-weight="600" fill="#0f172a">Wrapped DEK</text>
+  <text x="740" y="324" text-anchor="middle" font-size="11.5" fill="#64748b">the "envelope", stored with the object</text>
+
+  <text x="316" y="362" font-size="11.5" fill="#166534">post-quantum — where RSA / elliptic-curve would be broken, ML-KEM is not (NIST FIPS 203)</text>
+
+  <!-- ===== BANNER ===== -->
+  <rect x="40" y="404" width="820" height="84" rx="11" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="64" y="436" font-size="14" font-weight="700" fill="#0f172a">“Harvest now, decrypt later” — blocked.</text>
+  <text x="64" y="460" font-size="12.5" fill="#334155">An attacker can copy the ciphertext today and wait for a quantum computer. With both layers quantum-safe,</text>
+  <text x="64" y="478" font-size="12.5" fill="#334155">that wait never pays off — data stored today stays confidential after large quantum computers arrive.</text>
+</svg>

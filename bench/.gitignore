@@ -1,0 +1,4 @@
+# Benchmark run outputs (logs, warp data, mpstat) — not committed.
+results/
+.benchdata/
+.benchtmp/

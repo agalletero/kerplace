@@ -1,0 +1,31 @@
+# Rust build output
+/target
+
+# Release artifacts (built by build-static.sh / CI; uploaded to releases, not committed)
+/dist
+
+# Local object storage data
+/data
+/tmp
+
+# Stray test bucket data (created by ad-hoc mc/s3fs test runs)
+/dave
+
+# Generated secrets / at-rest key material (never commit) — defensive in case
+# the server is run with its data dir inside the repo.
+.mynio.sys/
+*.key
+master.key
+pq.bin
+tls-cert.pem
+tls-key.pem
+*.passwd-s3fs
+# Rotated user credentials emitted by myNIO-migrate.sh (contains secret keys)
+migrated-credentials*.csv
+
+# Editor / OS
+*.swp
+.DS_Store
+.idea/
+.vscode/
+/warp-*.json.zst

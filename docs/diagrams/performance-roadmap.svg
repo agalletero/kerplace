@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 600" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="ax" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="920" height="600" rx="14" fill="#ffffff"/>
+  <text x="460" y="32" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">KerPlace optimization roadmap — impact × effort</text>
+
+  <!-- Phase 0 banner -->
+  <rect x="30" y="46" width="860" height="34" rx="8" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.4"/>
+  <text x="46" y="68" font-size="12.5" font-weight="700" fill="#92400e">⭐ Phase 0 — MEASURE FIRST (warp · flamegraph · tokio-console · criterion + fio/nicstat) → gates everything below</text>
+
+  <!-- plot quadrant tints -->
+  <rect x="90" y="110" width="295" height="180" fill="#f0fdf4"/>
+  <rect x="385" y="110" width="295" height="180" fill="#faf5ff"/>
+  <rect x="90" y="290" width="295" height="180" fill="#f8fafc"/>
+  <rect x="385" y="290" width="295" height="180" fill="#f8fafc"/>
+  <rect x="90" y="110" width="590" height="360" fill="none" stroke="#e2e8f0" stroke-width="1.4"/>
+  <line x1="385" y1="110" x2="385" y2="470" stroke="#e2e8f0" stroke-width="1.2"/>
+  <line x1="90" y1="290" x2="680" y2="290" stroke="#e2e8f0" stroke-width="1.2"/>
+
+  <!-- axes -->
+  <line x1="90" y1="488" x2="680" y2="488" stroke="#475569" stroke-width="1.6" marker-end="url(#ax)"/>
+  <text x="385" y="505" text-anchor="middle" font-size="11.5" fill="#475569">Effort →  (low … high)</text>
+  <line x1="74" y1="470" x2="74" y2="110" stroke="#475569" stroke-width="1.6" marker-end="url(#ax)"/>
+  <text x="64" y="290" text-anchor="middle" font-size="11.5" fill="#475569" transform="rotate(-90 64 290)">Impact ↑</text>
+
+  <!-- quadrant corner labels -->
+  <text x="104" y="128" font-size="11" font-weight="700" fill="#16a34a" opacity="0.7">DO FIRST</text>
+  <text x="666" y="128" text-anchor="end" font-size="11" font-weight="700" fill="#7c3aed" opacity="0.7">BIG BETS</text>
+  <text x="104" y="462" font-size="11" font-weight="700" fill="#94a3b8">polish</text>
+  <text x="666" y="462" text-anchor="end" font-size="11" font-weight="700" fill="#94a3b8">later / measure-gated</text>
+
+  <!-- Phase 1 (green) -->
+  <g fill="#16a34a">
+    <circle cx="160" cy="150" r="7"/><circle cx="150" cy="196" r="7"/><circle cx="252" cy="244" r="7"/><circle cx="142" cy="270" r="6"/>
+  </g>
+  <g font-size="10.5" fill="#14532d">
+    <text x="172" y="153" font-weight="700">P1.1 Read only K shards</text>
+    <text x="162" y="199" font-weight="700">P1.3 KMS RTT pipeline + DEK pool</text>
+    <text x="264" y="247">P1.4 Concurrent writes + duplex</text>
+    <text x="152" y="273">P1.5 ring AEAD · alloc · LTO · ML-KEM cache</text>
+  </g>
+
+  <!-- Phase 2 (blue) -->
+  <g fill="#2563eb">
+    <circle cx="356" cy="166" r="7"/><circle cx="424" cy="206" r="7"/><circle cx="396" cy="240" r="7"/><circle cx="436" cy="272" r="6"/>
+    <circle cx="452" cy="326" r="6"/><circle cx="486" cy="360" r="6"/>
+  </g>
+  <g font-size="10.5" fill="#1e3a8a">
+    <text x="350" y="158" text-anchor="end">P1.2 reed-solomon-simd</text>
+    <text x="436" y="209">P2.1 Metadata cache</text>
+    <text x="408" y="243">P2.5 Small-object inline</text>
+    <text x="448" y="275">P2.3 Range-read fast path</text>
+    <text x="464" y="329">P2.2 Off async workers</text>
+    <text x="498" y="363">P2.4 Multi-range endpoint</text>
+  </g>
+
+  <!-- Phase 3 (purple) -->
+  <g fill="#7c3aed">
+    <circle cx="612" cy="150" r="8"/><circle cx="628" cy="214" r="7"/><circle cx="572" cy="330" r="6"/><circle cx="624" cy="362" r="6"/>
+  </g>
+  <g font-size="10.5" fill="#581c87">
+    <text x="602" y="153" text-anchor="end" font-weight="700">P3.1 Symmetric nodes (funnel-buster)</text>
+    <text x="618" y="217" text-anchor="end">P3.2 Volume packing</text>
+    <text x="562" y="333" text-anchor="end">P3.3 O_DIRECT + scrub</text>
+    <text x="614" y="365" text-anchor="end">P3.4 aws-lc-rs / VAES</text>
+  </g>
+
+  <!-- legend -->
+  <g font-size="10.5">
+    <circle cx="120" cy="528" r="6" fill="#16a34a"/><text x="132" y="531" fill="#334155">Phase 1 — free wins</text>
+    <circle cx="290" cy="528" r="6" fill="#2563eb"/><text x="302" y="531" fill="#334155">Phase 2 — measure-driven</text>
+    <circle cx="490" cy="528" r="6" fill="#7c3aed"/><text x="502" y="531" fill="#334155">Phase 3 — big bets</text>
+  </g>
+
+  <!-- NOT now sidebar -->
+  <rect x="700" y="110" width="190" height="360" rx="10" fill="#fef2f2" stroke="#fecaca" stroke-width="1.3"/>
+  <text x="715" y="132" font-size="12.5" font-weight="700" fill="#991b1b">🚫 NOT now</text>
+  <g font-size="10.3" fill="#334155">
+    <text x="715" y="156">• crypto on the drives</text>
+    <text x="715" y="173">  (breaks custody)</text>
+    <text x="715" y="194">• QAT for AES-GCM</text>
+    <text x="715" y="215">• RDMA / DPDK / SPDK</text>
+    <text x="715" y="236">• GPU erasure</text>
+    <text x="715" y="257">• gRPC / custom RPC</text>
+    <text x="715" y="278">• io_uring (axum stack)</text>
+    <text x="715" y="299">• ISA-L C lib (musl)</text>
+    <text x="715" y="324" font-weight="700" fill="#991b1b">• KDF from cached root</text>
+    <text x="715" y="340">  → kills KMS revocability</text>
+    <text x="715" y="356">  (opt-in only, off by default)</text>
+  </g>
+  <line x1="715" y1="386" x2="875" y2="386" stroke="#fecaca" stroke-width="1"/>
+  <text x="715" y="408" font-size="10.3" font-weight="700" fill="#9a3412">The real ceiling-lifter:</text>
+  <text x="715" y="424" font-size="10.3" fill="#334155">only P3.1 (symmetric nodes)</text>
+  <text x="715" y="440" font-size="10.3" fill="#334155">removes the gateway funnel —</text>
+  <text x="715" y="456" font-size="10.3" fill="#334155">the rest optimize it.</text>
+</svg>

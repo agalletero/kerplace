@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+    <marker id="arrowL" markerWidth="10" markerHeight="10" refX="2" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M8,0 L0,3 L8,6 Z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="900" height="520" rx="14" fill="#ffffff"/>
+
+  <text x="450" y="36" text-anchor="middle" font-size="21" font-weight="700" fill="#0f172a">Off-host key custody — own the host, still can't read the data</text>
+  <text x="450" y="58" text-anchor="middle" font-size="13" fill="#64748b">the unwrap key lives on your laptop; the host holds only ciphertext + a wrapped DEK</text>
+
+  <!-- LEFT: hosting (untrusted) -->
+  <rect x="34" y="88" width="372" height="208" rx="11" fill="#fef2f2" stroke="#f87171" stroke-width="2"/>
+  <text x="220" y="115" text-anchor="middle" font-size="15.5" font-weight="700" fill="#991b1b">Hosting  (untrusted)</text>
+  <text x="220" y="133" text-anchor="middle" font-size="11.5" fill="#b91c1c">VPS / cloud box / someone else's server</text>
+
+  <rect x="56" y="146" width="328" height="58" rx="8" fill="#ffffff" stroke="#fca5a5" stroke-width="1.3"/>
+  <text x="70" y="167" font-size="12.5" font-weight="700" fill="#0f172a">KerPlace</text>
+  <text x="70" y="186" font-size="11.5" fill="#334155">/kerplace:  KPE1 · vault:v1:… · ciphertext</text>
+  <text x="70" y="199" font-size="11" fill="#dc2626">no plaintext · no unwrap key on this host</text>
+
+  <rect x="56" y="216" width="328" height="62" rx="8" fill="#fff1f2" stroke="#fda4af" stroke-width="1.2"/>
+  <text x="70" y="237" font-size="12" font-weight="700" fill="#9f1239">🔓 attacker / hosting provider gets</text>
+  <text x="70" y="256" font-size="11.5" fill="#334155">encrypted blobs + the wrapped DEK token</text>
+  <text x="70" y="271" font-size="11.5" fill="#334155">— and nothing that turns them into data</text>
+
+  <!-- RIGHT: laptop (trusted) -->
+  <rect x="566" y="88" width="300" height="208" rx="11" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="716" y="115" text-anchor="middle" font-size="15.5" font-weight="700" fill="#166534">Your laptop  (trusted)</text>
+  <text x="716" y="133" text-anchor="middle" font-size="11.5" fill="#15803d">the root of trust — kept with you</text>
+
+  <rect x="588" y="146" width="256" height="58" rx="8" fill="#ffffff" stroke="#86efac" stroke-width="1.3"/>
+  <text x="602" y="167" font-size="12.5" font-weight="700" fill="#0f172a">Vault Transit  (KMS)</text>
+  <text x="602" y="186" font-size="11.5" fill="#334155">the ONLY place a DEK is</text>
+  <text x="602" y="199" font-size="11.5" fill="#334155">unwrapped (vault:v1:… → key)</text>
+
+  <rect x="588" y="216" width="256" height="62" rx="8" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.2"/>
+  <text x="602" y="237" font-size="12" font-weight="700" fill="#065f46">🛑 the kill switch</text>
+  <text x="602" y="256" font-size="11.5" fill="#334155">revoke the token / Transit key, or</text>
+  <text x="602" y="271" font-size="11.5" fill="#334155">close the laptop → instant lockout</text>
+
+  <!-- connector: TLS over SSH reverse tunnel -->
+  <line x1="406" y1="178" x2="566" y2="178" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="486" y="170" text-anchor="middle" font-size="10.5" fill="#64748b">unwrap request  (vault:v1:…)</text>
+  <line x1="566" y1="206" x2="406" y2="206" stroke="#475569" stroke-width="2" marker-end="url(#arrowL)"/>
+  <text x="486" y="222" text-anchor="middle" font-size="10.5" fill="#64748b">DEK — lives only in the server's RAM</text>
+  <text x="486" y="248" text-anchor="middle" font-size="10.5" font-weight="700" fill="#334155">TLS (private CA) over an</text>
+  <text x="486" y="262" text-anchor="middle" font-size="10.5" font-weight="700" fill="#334155">SSH reverse tunnel</text>
+
+  <!-- bottom: protects vs not -->
+  <rect x="34" y="316" width="416" height="178" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.3"/>
+  <text x="52" y="340" font-size="13" font-weight="700" fill="#166534">✓ Protects (data at rest / offline)</text>
+  <text x="52" y="364" font-size="11.5" fill="#334155">• hosting-provider access to the box</text>
+  <text x="52" y="386" font-size="11.5" fill="#334155">• a stolen disk or a leaked backup</text>
+  <text x="52" y="408" font-size="11.5" fill="#334155">• host compromise while the laptop is offline</text>
+  <text x="52" y="430" font-size="11.5" fill="#334155">• after you revoke — even data already written</text>
+  <text x="52" y="458" font-size="11.5" font-weight="700" fill="#166534">→ to read the data, an attacker also needs</text>
+  <text x="52" y="474" font-size="11.5" font-weight="700" fill="#166534">   your laptop (and an un-revoked token).</text>
+
+  <rect x="466" y="316" width="400" height="178" rx="10" fill="#fffbeb" stroke="#fde68a" stroke-width="1.3"/>
+  <text x="484" y="340" font-size="13" font-weight="700" fill="#92400e">⚠ Does NOT protect (declared, not hidden)</text>
+  <text x="484" y="364" font-size="11.5" fill="#334155">• a LIVE host compromise while the server runs</text>
+  <text x="484" y="382" font-size="11.5" fill="#334155">  AND the laptop/tunnel is reachable — the</text>
+  <text x="484" y="400" font-size="11.5" fill="#334155">  attacker can ride KerPlace's own KMS token.</text>
+  <text x="484" y="422" font-size="11.5" fill="#334155">• compromise of the laptop / Vault itself.</text>
+  <text x="484" y="450" font-size="11.5" font-weight="700" fill="#92400e">→ moves the bar from "own the disk" to "own</text>
+  <text x="484" y="466" font-size="11.5" font-weight="700" fill="#92400e">   the live process while the KMS is reachable"</text>
+  <text x="484" y="482" font-size="11.5" font-weight="700" fill="#92400e">   — much higher, and revocable.</text>
+</svg>

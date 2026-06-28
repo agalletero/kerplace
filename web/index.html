@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>KerPlace Console</title>
+<script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("kerplace_theme")||"light");}catch(e){}</script>
+<style>
+  :root {
+    /* Light theme — the default: the console is an everyday work surface. */
+    --bg: #f5f7fa;
+    --panel: #ffffff;
+    --panel-2: #eef1f5;
+    --border: #e1e6ec;
+    --text: #1b1f27;
+    --muted: #687184;
+    --accent: #0d9488;
+    --accent-hover: #0f766e;
+    --danger: #dc2626;
+    --danger-hover: #b91c1c;
+    --amber: #b45309;
+    --blue: #2563eb;
+    --shadow-lg: 0 16px 50px rgba(15,23,42,.16);
+    --shadow-md: 0 8px 24px rgba(15,23,42,.12);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1e222b;
+    --border: #2a2f3a;
+    --text: #e6e9ef;
+    --muted: #8b93a7;
+    --accent: #14b8a6;
+    --accent-hover: #0d9488;
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --amber: #f59e0b;
+    --blue: #6cb1ff;
+    --shadow-lg: 0 20px 60px rgba(0,0,0,.45);
+    --shadow-md: 0 10px 30px rgba(0,0,0,.4);
+  }
+  html { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+  }
+  button {
+    font: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    background: var(--panel-2);
+    color: var(--text);
+    transition: background .15s ease;
+  }
+  button:hover { background: var(--border); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button:disabled:hover { background: var(--panel-2); }
+  button.primary:disabled:hover { background: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); color: #04211d; font-weight: 600; }
+  button.primary:hover { background: var(--accent-hover); }
+  button.danger { background: transparent; color: var(--danger); }
+  button.danger:hover { background: rgba(239,68,68,.12); }
+  button.ghost { background: transparent; color: var(--muted); }
+  button.ghost:hover { background: var(--panel-2); color: var(--text); }
+  input {
+    font: inherit;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 12px;
+    color: var(--text);
+    outline: none;
+  }
+  input:focus { border-color: var(--accent); }
+  a { color: var(--accent); }
+
+  /* ---- Login ---- */
+  #login {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .login-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 36px;
+    width: 360px;
+    box-shadow: var(--shadow-lg);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 700; }
+  .brand .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); }
+  .login-card h1 { font-size: 22px; margin: 0 0 4px; }
+  .login-card p { color: var(--muted); margin: 0 0 24px; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .field label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .login-card button { width: 100%; padding: 11px; }
+  .login-err { color: var(--danger); font-size: 13px; min-height: 18px; margin-top: 4px; }
+
+  /* ---- App shell ---- */
+  #app { display: none; min-height: 100vh; }
+  header.topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  header .meta { color: var(--muted); font-size: 12px; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .spread { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  h2 { font-size: 18px; margin: 0; }
+  .muted { color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+  tbody tr:hover { background: var(--panel); }
+  td .name { display: flex; align-items: center; gap: 8px; }
+  td .actions { display: flex; gap: 6px; justify-content: flex-end; }
+  .clickable { cursor: pointer; color: var(--text); }
+  .clickable:hover { color: var(--accent); text-decoration: underline; }
+  .icon { width: 16px; height: 16px; opacity: .7; flex: none; }
+
+  .breadcrumb { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; color: var(--muted); }
+  .breadcrumb span.sep { opacity: .5; }
+  .breadcrumb a { cursor: pointer; }
+
+  .empty { text-align: center; color: var(--muted); padding: 48px 0; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 12px; margin-top: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .card .n { font-size: 26px; font-weight: 700; }
+  .card .l { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+
+  /* toast */
+  #toasts { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 100; }
+  .toast { background: var(--panel-2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 12px 16px; min-width: 240px; box-shadow: var(--shadow-md); }
+  .toast.error { border-left-color: var(--danger); }
+  .toast .t { font-weight: 600; }
+  .toast .m { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  /* nav + badges + pills */
+  nav.tabs { display: flex; gap: 4px; }
+  nav.tabs button { background: transparent; color: var(--muted); border-radius: 6px; }
+  nav.tabs button.active { background: var(--panel-2); color: var(--text); }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge { font-size: 11px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); letter-spacing:.02em; }
+  .badge.on { color: var(--accent); border-color: var(--accent); }
+  .pill { font-size: 11px; padding: 2px 9px; border-radius: 999px; display: inline-block; }
+  .pill.green { background: rgba(20,184,166,.15); color: var(--accent); }
+  .pill.gray  { background: var(--panel-2); color: var(--muted); }
+  .pill.amber { background: rgba(245,158,11,.15); color: var(--amber); }
+  .pill.red   { background: rgba(239,68,68,.15); color: var(--danger); }
+  .panel-box { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-top: 16px; }
+  .panel-box h3 { margin: 0 0 4px; font-size: 15px; }
+  .panel-box .desc { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  select { font: inherit; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; color: var(--text); outline: none; }
+  select:focus { border-color: var(--accent); }
+  .pill.blue { background: rgba(56,139,253,.16); color: var(--blue); }
+
+  /* inline bucket-status badges */
+  td .tags { display: inline-flex; gap: 6px; margin-left: 8px; vertical-align: middle; }
+
+  /* confirm modal */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(2px);
+    display: none; align-items: center; justify-content: center; z-index: 200; }
+  .overlay.show { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 24px; width: 380px; box-shadow: var(--shadow-lg); }
+  .modal h3 { margin: 0 0 8px; font-size: 16px; }
+  .modal p { margin: 0 0 20px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+  .modal .actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .input-group { display: flex; gap: 6px; }
+  .input-group input { flex: 1; }
+
+  /* drag-and-drop + upload progress */
+  #view.dropzone.dragover { outline: 2px dashed var(--accent); outline-offset: -8px; background: rgba(20,184,166,.04); border-radius: 12px; }
+  #uploads { position: fixed; bottom: 20px; left: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 100; width: 280px; }
+  .up { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; box-shadow: var(--shadow-md); }
+  .up .n { font-size: 13px; display: flex; justify-content: space-between; gap: 8px; }
+  .up .n .pct { color: var(--muted); flex: none; }
+  .up .n .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .up .bar { height: 5px; background: var(--border); border-radius: 999px; margin-top: 7px; overflow: hidden; }
+  .up .bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .12s linear; }
+  .up.err .bar > i { background: var(--danger); }
+  .drop-hint { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="login">
+  <form class="login-card" id="login-form">
+    <div class="brand" style="margin-bottom:24px"><span class="dot"></span> KerPlace</div>
+    <h1>Sign in</h1>
+    <p>Use your access key and secret key.</p>
+    <div class="field">
+      <label for="ak">Access Key</label>
+      <input id="ak" autocomplete="username" value="minioadmin" />
+    </div>
+    <div class="field">
+      <label for="sk">Secret Key</label>
+      <input id="sk" type="password" autocomplete="current-password" value="minioadmin" />
+    </div>
+    <button class="primary" type="submit">Login</button>
+    <a id="sso-btn" href="/api/oidc/login" style="display:none;margin-top:10px;text-align:center;width:100%;padding:11px;border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--fg);box-sizing:border-box">Sign in with SSO</a>
+    <div class="login-err" id="login-err"></div>
+  </form>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="app">
+  <header class="topbar">
+    <div class="row" style="gap:18px">
+      <div class="brand" style="font-size:18px"><span class="dot"></span> KerPlace <span class="meta" id="version"></span></div>
+      <nav class="tabs" id="tabs">
+        <button id="tab-buckets" class="active" onclick="setView('buckets')">Buckets</button>
+        <button id="tab-users" onclick="setView('users')">Users</button>
+        <button id="tab-storage" onclick="setView('storage')">Storage</button>
+      </nav>
+    </div>
+    <div class="row" style="gap:14px">
+      <div class="badges" id="caps"></div>
+      <button class="ghost" id="theme-btn" onclick="toggleTheme()" title="Toggle light / dark" style="padding:8px 10px">🌙</button>
+      <button class="ghost" onclick="logout()">Logout</button>
+    </div>
+  </header>
+  <div class="container" id="view"></div>
+</div>
+
+<div id="toasts"></div>
+<div id="uploads"></div>
+
+<!-- confirm dialog -->
+<div id="overlay" class="overlay">
+  <div class="modal">
+    <h3 id="modal-title">Confirm</h3>
+    <p id="modal-msg"></p>
+    <div class="actions">
+      <button class="ghost" id="modal-cancel">Cancel</button>
+      <button class="danger" id="modal-ok" style="background:rgba(239,68,68,.12)">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = location.origin + "/api";
+/* OIDC SSO returns the session token in the URL fragment (#token=...), which is
+   never sent to servers/logs. Pick it up on load, persist it, and clean the URL. */
+(function pickUpSsoToken(){
+  const m = location.hash.match(/[#&]token=([^&]+)/);
+  if (m) {
+    localStorage.setItem("kerplace_token", decodeURIComponent(m[1]));
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+})();
+let token = localStorage.getItem("kerplace_token") || "";
+let state = { bucket: null, prefix: "" };
+/* Reveal the SSO button on the login screen only when OIDC is configured. */
+fetch(API + "/oidc/enabled").then(r => r.json()).then(d => {
+  if (d && d.enabled) document.getElementById("sso-btn").style.display = "block";
+}).catch(() => {});
+
+/* ---------- helpers ---------- */
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function fmtSize(n){
+  if (n < 1024) return n + " B";
+  const u = ["KB","MB","GB","TB"]; let i=-1, v=n;
+  do { v/=1024; i++; } while (v>=1024 && i<u.length-1);
+  return v.toFixed(1) + " " + u[i];
+}
+function fmtDate(s){ try { return new Date(s).toLocaleString(); } catch(e){ return s; } }
+function encKey(k){ return k.split("/").map(encodeURIComponent).join("/"); }
+
+function toast(title, msg, isErr){
+  const el = document.createElement("div");
+  el.className = "toast" + (isErr ? " error" : "");
+  el.innerHTML = `<div class="t">${esc(title)}</div>` + (msg ? `<div class="m">${esc(msg)}</div>` : "");
+  document.getElementById("toasts").appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+/* Styled confirm dialog → resolves to true/false (replaces window.confirm). */
+function confirmDialog(message, title="Confirm", okLabel="Confirm"){
+  return new Promise(resolve => {
+    const ov = document.getElementById("overlay");
+    document.getElementById("modal-title").textContent = title;
+    document.getElementById("modal-msg").textContent = message;
+    const okBtn = document.getElementById("modal-ok");
+    const cancelBtn = document.getElementById("modal-cancel");
+    okBtn.textContent = okLabel;
+    ov.classList.add("show");
+    const close = (val) => { ov.classList.remove("show"); okBtn.onclick=null; cancelBtn.onclick=null; document.onkeydown=null; resolve(val); };
+    okBtn.onclick = () => close(true);
+    cancelBtn.onclick = () => close(false);
+    ov.onclick = (e) => { if (e.target === ov) close(false); };
+    document.onkeydown = (e) => { if (e.key==="Escape") close(false); if (e.key==="Enter") close(true); };
+    okBtn.focus();
+  });
+}
+
+/* Generate a random URL-safe secret key. */
+function randomSecret(len=24){
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const a = new Uint8Array(len); crypto.getRandomValues(a);
+  return Array.from(a, b => chars[b % chars.length]).join("");
+}
+
+async function req(method, path, opts={}){
+  const headers = Object.assign({}, opts.headers || {});
+  if (token) headers["Authorization"] = "Bearer " + token;
+  const res = await fetch(API + path, { method, headers, body: opts.body });
+  if (res.status === 401){ logout(); throw new Error("Session expired"); }
+  return res;
+}
+async function reqJson(method, path, body){
+  const opts = {};
+  if (body !== undefined){ opts.headers = {"Content-Type":"application/json"}; opts.body = JSON.stringify(body); }
+  const res = await req(method, path, opts);
+  let data = null;
+  try { data = await res.json(); } catch(e) {}
+  if (!res.ok){ throw new Error((data && data.message) || res.statusText); }
+  return data;
+}
+
+/* ---------- auth ---------- */
+document.getElementById("login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById("login-err");
+  errEl.textContent = "";
+  try {
+    const res = await fetch(API + "/login", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ accessKey: document.getElementById("ak").value, secretKey: document.getElementById("sk").value }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Login failed");
+    token = data.token;
+    localStorage.setItem("kerplace_token", token);
+    showApp();
+  } catch (err) { errEl.textContent = err.message; }
+});
+
+function logout(){
+  token = "";
+  localStorage.removeItem("kerplace_token");
+  document.getElementById("app").style.display = "none";
+  document.getElementById("login").style.display = "flex";
+}
+
+async function showApp(){
+  document.getElementById("login").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  try {
+    const info = await reqJson("GET", "/info");
+    document.getElementById("version").textContent = "v" + info.version;
+    renderCaps(info.capabilities || {});
+  } catch(e){}
+  setView("buckets");
+}
+
+/* Render the capability badges in the header from /info capabilities. */
+function renderCaps(c){
+  const defs = [
+    ["postQuantum", "PQC"],
+    ["encryptionDefault", "Enc"],
+    ["tls", "TLS"],
+    ["auth", "Auth"],
+    ["versioning", "Versioning"],
+  ];
+  document.getElementById("caps").innerHTML = defs
+    .map(([k,label]) => `<span class="badge ${c[k] ? "on" : "off"}" title="${c[k] ? "enabled" : "available"}">${label}</span>`)
+    .join("");
+}
+
+/* Switch the active top-level view (buckets | users | storage). */
+function setView(name){
+  state.view = name;
+  for (const t of ["buckets","users","storage"]) document.getElementById("tab-"+t).classList.toggle("active", name===t);
+  if (name === "users") showUsers();
+  else if (name === "storage") showStorage();
+  else showBuckets();
+}
+
+/* Remove any drag-and-drop wiring from the main view (between views). */
+function clearDrop(){
+  const v = document.getElementById("view");
+  v.classList.remove("dropzone","dragover");
+  v.ondragover = v.ondragleave = v.ondrop = null;
+}
+
+/* ---------- buckets ---------- */
+async function showBuckets(){
+  clearDrop();
+  state.bucket = null; state.prefix = "";
+  const view = document.getElementById("view");
+  view.innerHTML = `
+    <div class="spread">
+      <h2>Buckets</h2>
+      <div class="row">
+        <input id="new-bucket" placeholder="new-bucket-name" />
+        <button class="primary" onclick="createBucket()">+ Create Bucket</button>
+      </div>
+    </div>
+    <div id="bucket-list" class="muted" style="margin-top:16px">Loading…</div>`;
+  document.getElementById("new-bucket").addEventListener("keydown", e => { if (e.key==="Enter") createBucket(); });
+  try {
+    const buckets = await reqJson("GET", "/buckets");
+    const el = document.getElementById("bucket-list");
+    if (!buckets.length){ el.outerHTML = `<div class="empty">No buckets yet. Create your first one above.</div>`; return; }
+    let rows = buckets.map(b => `
+      <tr>
+        <td><span class="name clickable" onclick="openBucket('${esc(b.name)}')">📦 ${esc(b.name)}</span><span class="tags" id="tags-${esc(b.name)}"></span></td>
+        <td class="muted">${esc(fmtDate(b.creationDate))}</td>
+        <td class="actions">
+          <button onclick="openBucket('${esc(b.name)}')">Browse</button>
+          <button onclick="showBucketSettings('${esc(b.name)}')">⚙ Settings</button>
+          <button class="danger" onclick="deleteBucket('${esc(b.name)}')">Delete</button>
+        </td>
+      </tr>`).join("");
+    el.outerHTML = `<table><thead><tr><th>Name</th><th>Created</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    // Asynchronously decorate each bucket with its encryption/versioning status.
+    buckets.forEach(b => loadBucketTags(b.name));
+  } catch(err){ toast("Error", err.message, true); }
+}
+
+/* Fetch a bucket's settings and inject encryption/versioning status pills. */
+async function loadBucketTags(name){
+  try {
+    const s = await reqJson("GET", `/buckets/${encodeURIComponent(name)}/settings`);
+    const host = document.getElementById("tags-" + name);
+    if (!host) return;
+    let html = "";
+    if (s.encryption) html += `<span class="pill green" title="post-quantum at-rest encryption">🔒 encrypted</span>`;
+    if (s.versioning === "Enabled") html += `<span class="pill blue">versioned</span>`;
+    else if (s.versioning === "Suspended") html += `<span class="pill amber">ver: suspended</span>`;
+    host.innerHTML = html;
+  } catch(e){ /* best-effort decoration */ }
+}
+
+async function createBucket(){
+  const input = document.getElementById("new-bucket");
+  const name = input.value.trim();
+  if (!name){ return; }
+  try {
+    await reqJson("POST", "/buckets", { name });
+    toast("Bucket created", name);
+    showBuckets();
+  } catch(err){ toast("Could not create bucket", err.message, true); }
+}
+
+async function deleteBucket(name){
+  if (!await confirmDialog(`Delete bucket "${name}"? This cannot be undone.`, "Delete bucket", "Delete")) return;
+  try {
+    await reqJson("DELETE", "/buckets/" + encodeURIComponent(name));
+    toast("Bucket deleted", name);
+    showBuckets();
+  } catch(err){
+    if (/not empty/i.test(err.message)){
+      if (await confirmDialog(`Bucket "${name}" is not empty. Delete it AND all its objects?`, "Delete non-empty bucket", "Delete everything")){
+        try {
+          await reqJson("DELETE", "/buckets/" + encodeURIComponent(name) + "?force=true");
+          toast("Bucket deleted", name);
+          showBuckets();
+        } catch(e2){ toast("Delete failed", e2.message, true); }
+      }
+    } else { toast("Delete failed", err.message, true); }
+  }
+}
+
+/* ---------- objects ---------- */
+function openBucket(name){ state.bucket = name; state.prefix = ""; showObjects(); }
+function navigate(prefix){ state.prefix = prefix; showObjects(); }
+
+async function showObjects(){
+  const view = document.getElementById("view");
+  const segs = state.prefix ? state.prefix.replace(/\/$/,"").split("/") : [];
+  let crumb = `<a onclick="showBuckets()">Buckets</a><span class="sep"> / </span><a onclick="openBucket('${esc(state.bucket)}')">${esc(state.bucket)}</a>`;
+  let acc = "";
+  segs.forEach(s => { acc += s + "/"; crumb += `<span class="sep"> / </span><a onclick="navigate('${esc(acc)}')">${esc(s)}</a>`; });
+
+  view.innerHTML = `
+    <div class="spread">
+      <div class="breadcrumb">${crumb}</div>
+      <div class="row">
+        <span class="drop-hint">drag &amp; drop files anywhere</span>
+        <input type="file" id="file-input" multiple style="display:none" />
+        <button class="primary" onclick="document.getElementById('file-input').click()">⬆ Upload</button>
+      </div>
+    </div>
+    <div id="object-list" class="muted" style="margin-top:16px">Loading…</div>`;
+  document.getElementById("file-input").addEventListener("change", e => uploadFiles(e.target.files));
+  // Drag-and-drop onto the whole view.
+  view.classList.add("dropzone");
+  view.ondragover = e => { e.preventDefault(); view.classList.add("dragover"); };
+  view.ondragleave = e => { if (e.target === view) view.classList.remove("dragover"); };
+  view.ondrop = e => { e.preventDefault(); view.classList.remove("dragover"); if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); };
+
+  try {
+    const data = await reqJson("GET", `/buckets/${encodeURIComponent(state.bucket)}/objects?prefix=${encodeURIComponent(state.prefix)}`);
+    const el = document.getElementById("object-list");
+    const folders = (data.prefixes || []);
+    const objects = (data.objects || []);
+    if (!folders.length && !objects.length){ el.outerHTML = `<div class="empty">This folder is empty. Upload a file to get started.</div>`; return; }
+    let rows = "";
+    folders.forEach(p => {
+      const label = p.slice(state.prefix.length).replace(/\/$/,"");
+      rows += `<tr>
+        <td><span class="name clickable" onclick="navigate('${esc(p)}')">📁 ${esc(label)}/</span></td>
+        <td class="muted">—</td><td class="muted">—</td><td></td></tr>`;
+    });
+    objects.forEach(o => {
+      const label = o.key.slice(state.prefix.length);
+      rows += `<tr>
+        <td><span class="name">📄 ${esc(label)}</span></td>
+        <td class="muted">${fmtSize(o.size)}</td>
+        <td class="muted">${esc(fmtDate(o.lastModified))}</td>
+        <td class="actions">
+          <button onclick="download('${esc(o.key)}')">Download</button>
+          <button onclick="showVersions('${esc(o.key)}')">Versions</button>
+          <button class="danger" onclick="deleteObject('${esc(o.key)}')">Delete</button>
+        </td></tr>`;
+    });
+    el.outerHTML = `<table><thead><tr><th>Name</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  } catch(err){ toast("Error", err.message, true); }
+}
+
+/* A live upload-progress card (bottom-left), updated from XHR progress events. */
+function uploadEntry(name){
+  const el = document.createElement("div");
+  el.className = "up";
+  el.innerHTML = `<div class="n"><span class="nm">${esc(name)}</span><span class="pct">0%</span></div><div class="bar"><i></i></div>`;
+  document.getElementById("uploads").appendChild(el);
+  return {
+    set(p){ el.querySelector(".pct").textContent = Math.round(p) + "%"; el.querySelector("i").style.width = p + "%"; },
+    done(){ setTimeout(() => el.remove(), 700); },
+    fail(){ el.classList.add("err"); el.querySelector(".pct").textContent = "failed"; setTimeout(() => el.remove(), 3000); },
+  };
+}
+
+/* Upload one file via XHR so we get real progress (fetch can't report it). */
+function uploadOne(key, file){
+  return new Promise((resolve, reject) => {
+    const ui = uploadEntry(file.name);
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", API + `/buckets/${encodeURIComponent(state.bucket)}/objects/${encKey(key)}`);
+    if (token) xhr.setRequestHeader("Authorization", "Bearer " + token);
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    xhr.upload.onprogress = e => { if (e.lengthComputable) ui.set(e.loaded / e.total * 100); };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300){ ui.set(100); ui.done(); resolve(); }
+      else if (xhr.status === 401){ ui.fail(); logout(); reject(new Error("session expired")); }
+      else { ui.fail(); reject(new Error("HTTP " + xhr.status)); }
+    };
+    xhr.onerror = () => { ui.fail(); reject(new Error("network error")); };
+    xhr.send(file);
+  });
+}
+
+async function uploadFiles(files){
+  if (!files || !files.length) return;
+  let ok = 0;
+  for (const file of files){
+    const key = state.prefix + file.name;
+    try { await uploadOne(key, file); ok++; }
+    catch(err){ toast("Upload failed", file.name + ": " + err.message, true); }
+  }
+  if (ok) toast("Uploaded", ok === 1 ? "1 file" : ok + " files");
+  showObjects();
+}
+
+async function download(key){
+  try {
+    const res = await req("GET", `/buckets/${encodeURIComponent(state.bucket)}/objects/${encKey(key)}`);
+    if (!res.ok) throw new Error("Download failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = key.split("/").pop();
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch(err){ toast("Download failed", err.message, true); }
+}
+
+async function deleteObject(key){
+  if (!await confirmDialog(`Delete "${key.split("/").pop()}"?`, "Delete object", "Delete")) return;
+  try {
+    await reqJson("DELETE", `/buckets/${encodeURIComponent(state.bucket)}/objects/${encKey(key)}`);
+    toast("Deleted", key.split("/").pop());
+    showObjects();
+  } catch(err){ toast("Delete failed", err.message, true); }
+}
+
+/* ---------- bucket settings (versioning + encryption) ---------- */
+async function showBucketSettings(bucket){
+  clearDrop();
+  state.bucket = bucket;
+  const view = document.getElementById("view");
+  view.innerHTML = `
+    <div class="breadcrumb"><a onclick="setView('buckets')">Buckets</a><span class="sep"> / </span><a onclick="openBucket('${esc(bucket)}')">${esc(bucket)}</a><span class="sep"> / </span>Settings</div>
+    <div id="settings-body" class="muted" style="margin-top:16px">Loading…</div>`;
+  try {
+    const s = await reqJson("GET", `/buckets/${encodeURIComponent(bucket)}/settings`);
+    const vstatus = s.versioning || "Off";
+    const vpill = vstatus==="Enabled" ? `<span class="pill green">Enabled</span>`
+               : vstatus==="Suspended" ? `<span class="pill amber">Suspended</span>`
+               : `<span class="pill gray">Off</span>`;
+    const enc = !!s.encryption;
+    const epill = enc ? `<span class="pill green">AES-256 + ML-KEM</span>` : `<span class="pill gray">Off</span>`;
+    document.getElementById("settings-body").outerHTML = `
+      <div id="settings-body">
+        <div class="panel-box">
+          <div class="spread">
+            <div><h3>Versioning ${vpill}</h3><p class="desc">Keep a history of every object write and recover prior versions or deletions.</p></div>
+            <div class="row">
+              <button class="primary" onclick="setVersioning('${esc(bucket)}','Enabled')" ${vstatus==="Enabled"?"disabled":""}>Enable</button>
+              <button onclick="setVersioning('${esc(bucket)}','Suspended')" ${vstatus!=="Enabled"?"disabled":""}>Suspend</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel-box">
+          <div class="spread">
+            <div><h3>Encryption at rest ${epill}</h3><p class="desc">Post-quantum (ML-KEM-1024) DEK wrapping + AES-256-GCM. Applies to objects written after enabling.</p></div>
+            <div class="row">
+              <button class="primary" onclick="setEncryption('${esc(bucket)}',true)" ${enc?"disabled":""}>Enable</button>
+              <button onclick="setEncryption('${esc(bucket)}',false)" ${!enc?"disabled":""}>Disable</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel-box">
+          <div class="spread">
+            <div><h3>Object versions</h3><p class="desc">Browse and restore individual versions and delete markers.</p></div>
+            <button onclick="openBucket('${esc(bucket)}')">Browse objects →</button>
+          </div>
+        </div>
+      </div>`;
+  } catch(err){ toast("Error", err.message, true); }
+}
+
+async function setVersioning(bucket, status){
+  try { await reqJson("PUT", `/buckets/${encodeURIComponent(bucket)}/versioning`, { status });
+    toast("Versioning updated", status); showBucketSettings(bucket);
+  } catch(err){ toast("Failed", err.message, true); }
+}
+async function setEncryption(bucket, enabled){
+  try { await reqJson("PUT", `/buckets/${encodeURIComponent(bucket)}/encryption`, { enabled });
+    toast("Encryption " + (enabled?"enabled":"disabled"), bucket); showBucketSettings(bucket);
+  } catch(err){ toast("Failed", err.message, true); }
+}
+
+/* ---------- object versions ---------- */
+async function showVersions(key){
+  clearDrop();
+  const bucket = state.bucket;
+  const view = document.getElementById("view");
+  view.innerHTML = `
+    <div class="breadcrumb"><a onclick="setView('buckets')">Buckets</a><span class="sep"> / </span><a onclick="openBucket('${esc(bucket)}')">${esc(bucket)}</a><span class="sep"> / </span>Versions of <span class="mono">${esc(key)}</span></div>
+    <div id="ver-list" class="muted" style="margin-top:16px">Loading…</div>`;
+  try {
+    const data = await reqJson("GET", `/buckets/${encodeURIComponent(bucket)}/versions?prefix=${encodeURIComponent(key)}`);
+    const vers = (data.versions || []).filter(v => v.key === key);
+    const el = document.getElementById("ver-list");
+    if (!vers.length){ el.outerHTML = `<div class="empty">No versions found for this object.</div>`; return; }
+    let rows = vers.map(v => {
+      const vid = v.versionId;
+      const tag = v.isDeleteMarker ? `<span class="pill red">delete marker</span>`
+                : v.isLatest ? `<span class="pill green">latest</span>` : `<span class="pill gray">previous</span>`;
+      const acts = v.isDeleteMarker
+        ? `<button class="danger" onclick="deleteVersion('${esc(key)}','${esc(vid)}')">Remove marker</button>`
+        : `<button onclick="downloadVersion('${esc(key)}','${esc(vid)}')">Download</button>
+           <button class="danger" onclick="deleteVersion('${esc(key)}','${esc(vid)}')">Delete</button>`;
+      const who = v.author
+        ? `🔑 ${esc(v.author)}${v.sourceIp ? ` <span class="muted">@ ${esc(v.sourceIp)}</span>` : ""}`
+        : `<span class="muted">—</span>`;
+      return `<tr>
+        <td><span class="mono">${esc(vid)}</span> ${tag}</td>
+        <td>${who}</td>
+        <td class="muted">${v.isDeleteMarker ? "—" : fmtSize(v.size)}</td>
+        <td class="muted">${esc(fmtDate(v.lastModified))}</td>
+        <td class="actions">${acts}</td></tr>`;
+    }).join("");
+    el.outerHTML = `<table><thead><tr><th>Version</th><th>Written by</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  } catch(err){ toast("Error", err.message, true); }
+}
+async function downloadVersion(key, vid){
+  try {
+    const res = await req("GET", `/buckets/${encodeURIComponent(state.bucket)}/objects/${encKey(key)}?versionId=${encodeURIComponent(vid)}`);
+    if (!res.ok) throw new Error("Download failed");
+    const blob = await res.blob(); const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = key.split("/").pop();
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  } catch(err){ toast("Download failed", err.message, true); }
+}
+async function deleteVersion(key, vid){
+  if (!await confirmDialog(`Permanently delete this version? This cannot be undone.`, "Delete version", "Delete")) return;
+  try {
+    await reqJson("DELETE", `/buckets/${encodeURIComponent(state.bucket)}/objects/${encKey(key)}?versionId=${encodeURIComponent(vid)}`);
+    toast("Version deleted", vid.slice(0,12)); showVersions(key);
+  } catch(err){ toast("Delete failed", err.message, true); }
+}
+
+/* ---------- storage / cluster health ---------- */
+/* Honest key-custody panel: what the active at-rest key provider does (not) protect. */
+function custodyPanel(s){
+  if (!s.keyProvider) return "";
+  const p = s.keyPosture || {};
+  return `<div class="panel-box" style="margin-top:16px">
+    <h3 style="margin:0 0 8px">Key custody — <span class="mono">${esc(s.keyProvider)}</span></h3>
+    <p class="desc" style="margin:0">🔒 At rest: post-quantum (ML-KEM-1024) DEK wrapping + AES-256-GCM. The data key is stored only in its wrapped (envelope) form.</p>
+    <p class="desc" style="margin:6px 0 0">✅ <b>Protects:</b> ${esc(p.protects || "—")}</p>
+    <p class="desc" style="margin:4px 0 0">⚠️ <b>Does NOT protect:</b> ${esc(p.doesNotProtect || "—")}</p>
+    <p class="desc" style="margin:4px 0 0">Unattended boot: ${p.unattendedBoot ? "yes" : "no"} · Key on this host: ${p.keyOnHost ? "yes" : "no"}</p>
+  </div>`;
+}
+async function showStorage(){
+  clearDrop();
+  const view = document.getElementById("view");
+  view.innerHTML = `
+    <div class="spread">
+      <h2>Storage</h2>
+      <div class="row">
+        <button onclick="runHeal(true)">Scan (dry-run)</button>
+        <button class="primary" onclick="runHeal(false)">Heal</button>
+      </div>
+    </div>
+    <div id="storage-body" class="muted" style="margin-top:16px">Loading…</div>`;
+  try {
+    const s = await reqJson("GET", "/storage");
+    const isErasure = s.backendType === "Erasure";
+    const online = (s.drives || []).filter(d => d.state === "ok").length;
+    const cards = `
+      <div class="cards">
+        <div class="card"><div class="n">${esc(s.backendType)}</div><div class="l">Backend</div></div>
+        ${isErasure ? `
+        <div class="card"><div class="n">${s.dataShards} + ${s.parityShards}</div><div class="l">Data + Parity</div></div>
+        <div class="card"><div class="n">${s.parityShards}</div><div class="l">Tolerated loss</div></div>
+        <div class="card"><div class="n">${online}/${s.drives.length}</div><div class="l">Drives online</div></div>` : ""}
+        ${s.keyProvider ? `<div class="card"><div class="n">🔑 ${esc(s.keyProvider)}</div><div class="l">Key custody</div></div>` : ""}
+      </div>`;
+    let body;
+    if (isErasure){
+      const rows = s.drives.map((d,i) => {
+        const pill = d.state === "ok" ? `<span class="pill green">online</span>` : `<span class="pill red">offline</span>`;
+        return `<tr><td>${i}</td><td><span class="mono">${esc(d.path)}</span></td><td>${pill}</td></tr>`;
+      }).join("");
+      body = cards + `<table><thead><tr><th>Shard</th><th>Drive</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+    } else {
+      body = cards + `<div class="panel-box"><p class="desc" style="margin:0">Single-disk filesystem mirror — no erasure redundancy. The default backend shards across drives and tolerates drive loss.</p></div>`;
+    }
+    body += custodyPanel(s);
+    document.getElementById("storage-body").outerHTML = `<div id="storage-body">${body}</div>`;
+  } catch(err){ toast("Error", err.message, true); }
+}
+async function runHeal(dry){
+  toast(dry ? "Scanning…" : "Healing…", "this can take a moment");
+  try {
+    const r = await reqJson("POST", "/heal?dryRun=" + (dry ? "true" : "false"));
+    toast(dry ? "Scan complete" : "Heal complete",
+      `${r.objectsScanned} scanned · ${r.objectsHealed} ${dry ? "need repair" : "healed"} · ${r.shardsRewritten} shards rewritten` +
+      (r.objectsUnrecoverable ? ` · ${r.objectsUnrecoverable} unrecoverable` : ""), r.objectsUnrecoverable > 0);
+    showStorage();
+  } catch(err){ toast("Heal failed", err.message, true); }
+}
+
+/* ---------- users ---------- */
+async function showUsers(){
+  clearDrop();
+  const view = document.getElementById("view");
+  view.innerHTML = `
+    <div class="spread">
+      <h2>Users &amp; Access</h2>
+    </div>
+    <div class="panel-box">
+      <h3>Add user</h3>
+      <p class="desc">Create an S3 credential with a canned access policy.</p>
+      <div class="row" style="flex-wrap:wrap">
+        <input id="u-ak" placeholder="access key" />
+        <div class="input-group">
+          <input id="u-sk" type="password" placeholder="secret key" />
+          <button class="ghost" onclick="genSecret()" title="Generate a random secret">⟳ Generate</button>
+        </div>
+        <select id="u-policy">
+          <option value="readwrite">readwrite</option>
+          <option value="readonly">readonly</option>
+          <option value="writeonly">writeonly</option>
+          <option value="consoleAdmin">admin</option>
+        </select>
+        <button class="primary" onclick="addUser()">+ Add user</button>
+      </div>
+    </div>
+    <div id="user-list" class="muted" style="margin-top:16px">Loading…</div>`;
+  try {
+    const data = await reqJson("GET", "/users");
+    const el = document.getElementById("user-list");
+    let rows = (data.users || []).map(u => {
+      const status = u.enabled ? `<span class="pill green">enabled</span>` : `<span class="pill gray">disabled</span>`;
+      const role = u.isRoot ? `<span class="pill amber">root</span>` : "";
+      const acts = u.isRoot ? `<span class="muted">—</span>` : `
+        <button onclick="setUserStatus('${esc(u.accessKey)}', ${u.enabled?"false":"true"})">${u.enabled?"Disable":"Enable"}</button>
+        <button class="danger" onclick="deleteUser('${esc(u.accessKey)}')">Delete</button>`;
+      return `<tr>
+        <td><span class="name">🔑 ${esc(u.accessKey)} ${role}</span></td>
+        <td><span class="mono">${esc(u.policy)}</span></td>
+        <td>${status}</td>
+        <td class="actions">${acts}</td></tr>`;
+    }).join("");
+    el.outerHTML = `<table><thead><tr><th>Access Key</th><th>Policy</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  } catch(err){ toast("Error", err.message, true); }
+}
+/* Fill the secret-key field with a fresh random value (revealed so it can be copied). */
+function genSecret(){
+  const f = document.getElementById("u-sk");
+  f.type = "text"; f.value = randomSecret();
+}
+async function addUser(){
+  const ak = document.getElementById("u-ak").value.trim();
+  const sk = document.getElementById("u-sk").value.trim();
+  const policy = document.getElementById("u-policy").value;
+  if (!ak || !sk){ toast("Missing fields", "Access key and secret key are required", true); return; }
+  try { await reqJson("POST", "/users", { accessKey: ak, secretKey: sk, policy });
+    toast("User created", `${ak} — copy the secret now, it won't be shown again`); showUsers();
+  } catch(err){ toast("Could not add user", err.message, true); }
+}
+async function setUserStatus(ak, enabled){
+  try { await reqJson("POST", `/users/${encodeURIComponent(ak)}/status`, { enabled });
+    toast("User " + (enabled?"enabled":"disabled"), ak); showUsers();
+  } catch(err){ toast("Failed", err.message, true); }
+}
+async function deleteUser(ak){
+  if (!await confirmDialog(`Delete user "${ak}"? Their access key will stop working immediately.`, "Delete user", "Delete")) return;
+  try { await reqJson("DELETE", "/users/" + encodeURIComponent(ak));
+    toast("User deleted", ak); showUsers();
+  } catch(err){ toast("Delete failed", err.message, true); }
+}
+
+/* ---------- theme ---------- */
+function applyTheme(t){
+  document.documentElement.setAttribute("data-theme", t);
+  localStorage.setItem("kerplace_theme", t);
+  const b = document.getElementById("theme-btn");
+  if (b) b.textContent = t === "dark" ? "☀️" : "🌙";
+}
+function toggleTheme(){
+  applyTheme((localStorage.getItem("kerplace_theme") || "light") === "dark" ? "light" : "dark");
+}
+
+/* ---------- boot ---------- */
+applyTheme(localStorage.getItem("kerplace_theme") || "light");
+if (token) showApp(); else { document.getElementById("login").style.display = "flex"; }
+</script>
+</body>
+</html>

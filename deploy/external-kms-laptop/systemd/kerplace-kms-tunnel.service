@@ -1,0 +1,23 @@
+[Unit]
+Description=KerPlace KMS reverse SSH tunnel (AWS :8200 -> local Vault)
+Documentation=https://localhost
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+# Persistent reverse tunnel: AWS reaches our local Vault at https://localhost:8200.
+# systemd Restart=always gives us autossh-equivalent resilience without the extra
+# dependency; ServerAlive + ExitOnForwardFailure detect a dead link and recycle it.
+# Replace the key path and host with your own (the SSH target of the KerPlace host).
+ExecStart=/usr/bin/ssh -N -R 8200:localhost:8200 \
+  -i /path/to/your-ssh-key.pem \
+  -o StrictHostKeyChecking=accept-new \
+  -o BatchMode=yes \
+  -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+  -o ExitOnForwardFailure=yes \
+  YOUR_USER@YOUR_HOST
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,103 @@
+[package]
+name = "kerplace"
+version = "0.1.0"
+edition = "2021"
+description = "KerPlace — an S3-compatible, post-quantum object storage server in Rust"
+license = "Apache-2.0"
+
+[[bin]]
+name = "kerplace"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+axum-server = { version = "0.8", default-features = false, features = ["tls-rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+rcgen = { version = "0.13", default-features = false, features = ["pem", "ring"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["trace"] }
+bytes = "1"
+futures = "0.3"
+tokio-util = { version = "0.7", features = ["io"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+quick-xml = { version = "0.37", features = ["serialize"] }
+hmac = "0.12"
+sha2 = "0.10"
+md-5 = "0.10"
+hex = "0.4"
+# `ring` AES-256-GCM (assembly + VAES/AVX-512 where present) is the hot-path object
+# /DEK AEAD — ~6× the RustCrypto `aes-gcm` 0.10 path on this HW (BASELINE.md, P1.5).
+# Already compiled in the tree (rustls/rcgen/jsonwebtoken), so this is a zero-cost
+# promotion to a direct dep. Same standard AES-256-GCM ⇒ KPE1 stays byte-compatible.
+ring = "0.17"
+# `aes-gcm` (+ `chacha20poly1305`) stay for the MinIO-compatible madmin secret format
+# (cold admin path that also needs ChaCha20) and as the crypto interop test reference.
+aes-gcm = "0.10"
+chacha20poly1305 = "0.10"
+argon2 = "0.5"
+pbkdf2 = "0.12"
+ml-kem = { version = "0.3", features = ["getrandom"] }
+reed-solomon-erasure = "6"
+blake3 = "1"
+rand = "0.8"
+uuid = { version = "1", features = ["v4"] }
+time = { version = "0.3", features = ["formatting", "parsing", "macros"] }
+multer = "3"
+percent-encoding = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+thiserror = "2"
+async-trait = "0.1"
+walkdir = "2"
+# Zeroize DEK material on drop so plaintext keys do not linger in freed memory
+# (the secret that flows through every `KeyProvider`).
+zeroize = "1"
+# mlock + setrlimit(core) hardening for on-host secret key material (the
+# `passphrase` provider's derived KEK). NB: `argon2` (the KDF) is already a
+# dependency above, reused here for the passphrase key derivation.
+libc = "0.2"
+# base64 for the `kms` provider's Vault Transit payloads (plaintext/ciphertext).
+base64 = "0.22"
+# JWT/JWKS validation for OIDC external identity (D1): validate ID tokens (RS256)
+# against the IdP's published keys.
+jsonwebtoken = "9"
+# Internal cluster RPC client (plain HTTP over the encrypted overlay mesh — no
+# TLS/http2 needed). Used by the erasure `RemoteDrive`.
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+# Parse PEM cert/key for the custom mTLS ServerConfig (gateway↔drive RPC).
+rustls-pemfile = "2"
+
+[dev-dependencies]
+tempfile = "3"
+# Phase-0 microbenchmarks (docs/PERFORMANCE.md §2). default-features off to skip
+# plotters/gnuplot — we only need the bench harness.
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+# benches call these crates directly (no lib target); versions mirror [dependencies].
+aes-gcm = "0.10"
+ring = "0.17"
+blake3 = "1"
+md-5 = "0.10"
+reed-solomon-erasure = "6"
+ml-kem = { version = "0.3", features = ["getrandom"] }
+# P1.2 A/B candidate: pure-Rust runtime-SIMD Reed-Solomon (vs the scalar prod crate).
+reed-solomon-simd = "3"
+
+[[bench]]
+name = "crypto"
+harness = false
+
+[[bench]]
+name = "erasure"
+harness = false
+
+[[bench]]
+name = "mlkem"
+harness = false
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+# Keep symbols in release/bench builds so flamegraphs/perf are usable (Phase 0).
+debug = true

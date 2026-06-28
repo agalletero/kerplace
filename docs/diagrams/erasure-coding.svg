@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 340" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="880" height="340" rx="14" fill="#ffffff"/>
+
+  <text x="440" y="34" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">Erasure coding — Reed-Solomon</text>
+  <text x="440" y="55" text-anchor="middle" font-size="12.5" fill="#64748b">example: K = 4 data + M = 2 parity = 6 shards (K and M are configurable)</text>
+
+  <!-- object -->
+  <rect x="32" y="120" width="170" height="92" rx="10" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.6"/>
+  <text x="117" y="152" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">object bytes</text>
+  <text x="117" y="172" text-anchor="middle" font-size="11.5" fill="#475569">(MNE1 ciphertext</text>
+  <text x="117" y="188" text-anchor="middle" font-size="11.5" fill="#475569">if encrypted)</text>
+
+  <!-- encode arrow -->
+  <line x1="202" y1="166" x2="288" y2="166" stroke="#475569" stroke-width="2" marker-end="url(#arrow2)"/>
+  <text x="245" y="156" text-anchor="middle" font-size="11.5" font-weight="600" fill="#334155">encode</text>
+  <text x="245" y="184" text-anchor="middle" font-size="10.5" fill="#64748b">per block</text>
+
+  <!-- data shards -->
+  <g>
+    <rect x="300" y="120" width="80" height="92" rx="9" fill="#ecfdf5" stroke="#10b981" stroke-width="1.7"/>
+    <text x="340" y="150" text-anchor="middle" font-size="12.5" font-weight="700" fill="#065f46">data 0</text>
+    <text x="340" y="172" text-anchor="middle" font-size="10" fill="#047857">BLAKE3</text>
+    <text x="340" y="186" text-anchor="middle" font-size="10" fill="#047857">checksum</text>
+  </g>
+  <g>
+    <rect x="388" y="120" width="80" height="92" rx="9" fill="#ecfdf5" stroke="#10b981" stroke-width="1.7"/>
+    <text x="428" y="150" text-anchor="middle" font-size="12.5" font-weight="700" fill="#065f46">data 1</text>
+    <text x="428" y="172" text-anchor="middle" font-size="10" fill="#047857">BLAKE3</text>
+    <text x="428" y="186" text-anchor="middle" font-size="10" fill="#047857">checksum</text>
+  </g>
+  <g>
+    <rect x="476" y="120" width="80" height="92" rx="9" fill="#ecfdf5" stroke="#10b981" stroke-width="1.7"/>
+    <text x="516" y="150" text-anchor="middle" font-size="12.5" font-weight="700" fill="#065f46">data 2</text>
+    <text x="516" y="172" text-anchor="middle" font-size="10" fill="#047857">BLAKE3</text>
+    <text x="516" y="186" text-anchor="middle" font-size="10" fill="#047857">checksum</text>
+  </g>
+  <g>
+    <rect x="564" y="120" width="80" height="92" rx="9" fill="#ecfdf5" stroke="#10b981" stroke-width="1.7"/>
+    <text x="604" y="150" text-anchor="middle" font-size="12.5" font-weight="700" fill="#065f46">data 3</text>
+    <text x="604" y="172" text-anchor="middle" font-size="10" fill="#047857">BLAKE3</text>
+    <text x="604" y="186" text-anchor="middle" font-size="10" fill="#047857">checksum</text>
+  </g>
+  <!-- parity shards -->
+  <g>
+    <rect x="668" y="120" width="80" height="92" rx="9" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.7"/>
+    <text x="708" y="150" text-anchor="middle" font-size="12.5" font-weight="700" fill="#92400e">parity 0</text>
+    <text x="708" y="172" text-anchor="middle" font-size="10" fill="#b45309">BLAKE3</text>
+    <text x="708" y="186" text-anchor="middle" font-size="10" fill="#b45309">checksum</text>
+  </g>
+  <g>
+    <rect x="756" y="120" width="80" height="92" rx="9" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.7"/>
+    <text x="796" y="150" text-anchor="middle" font-size="12.5" font-weight="700" fill="#92400e">parity 1</text>
+    <text x="796" y="172" text-anchor="middle" font-size="10" fill="#b45309">BLAKE3</text>
+    <text x="796" y="186" text-anchor="middle" font-size="10" fill="#b45309">checksum</text>
+  </g>
+
+  <text x="472" y="244" text-anchor="middle" font-size="11.5" fill="#64748b">each shard is stored on a different drive / node (the gateway spreads them by a per-object permutation)</text>
+
+  <!-- recover note -->
+  <rect x="180" y="266" width="520" height="50" rx="10" fill="#f0fdf4" stroke="#86efac" stroke-width="1.4"/>
+  <text x="440" y="290" text-anchor="middle" font-size="12.5" font-weight="700" fill="#166534">lose ANY M = 2 shards → still recover from the surviving K = 4</text>
+  <text x="440" y="308" text-anchor="middle" font-size="11" fill="#15803d">a failed BLAKE3 check marks a shard corrupt; heal rebuilds it</text>
+</svg>

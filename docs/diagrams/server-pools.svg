@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 540" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+    <marker id="arrowA" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#d97706"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="900" height="540" rx="14" fill="#ffffff"/>
+
+  <text x="450" y="34" text-anchor="middle" font-size="21" font-weight="700" fill="#0f172a">KerPlace server pools — dynamic membership</text>
+  <text x="450" y="56" text-anchor="middle" font-size="13" fill="#64748b">add a pool to grow · drain a pool to shrink · existing objects are never re-encoded</text>
+
+  <!-- gateway -->
+  <rect x="40" y="214" width="196" height="128" rx="11" fill="#eef2ff" stroke="#6366f1" stroke-width="2"/>
+  <text x="138" y="244" text-anchor="middle" font-size="15" font-weight="700" fill="#312e81">gateway</text>
+  <text x="138" y="266" text-anchor="middle" font-size="11.5" fill="#3730a3">places new writes</text>
+  <text x="138" y="285" text-anchor="middle" font-size="11.5" fill="#3730a3">locates + merges reads</text>
+  <text x="138" y="312" text-anchor="middle" font-size="11" fill="#6366f1">reads the membership doc</text>
+
+  <!-- Pool 0 (Active) -->
+  <rect x="288" y="84" width="574" height="116" rx="11" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="306" y="110" font-size="13.5" font-weight="700" fill="#166534">Pool 0 · Active · parity 2</text>
+  <text x="306" y="130" font-size="11.5" fill="#15803d">free: 38%</text>
+  <text x="306" y="150" font-size="11" fill="#64748b">one fixed-width erasure set</text>
+  <g font-size="10.5" fill="#0369a1" text-anchor="middle">
+    <rect x="600" y="108" width="56" height="56" rx="7" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.5"/><text x="628" y="140">n0</text>
+    <rect x="664" y="108" width="56" height="56" rx="7" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.5"/><text x="692" y="140">n1</text>
+    <rect x="728" y="108" width="56" height="56" rx="7" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.5"/><text x="756" y="140">n2</text>
+    <rect x="792" y="108" width="56" height="56" rx="7" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.5"/><text x="820" y="140">n3</text>
+  </g>
+
+  <!-- Pool 1 (Active, newly added) -->
+  <rect x="288" y="212" width="574" height="116" rx="11" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="306" y="238" font-size="13.5" font-weight="700" fill="#166534">Pool 1 · Active · parity 2  (added online)</text>
+  <text x="306" y="258" font-size="11.5" fill="#15803d">free: 91% → takes most new writes</text>
+  <text x="306" y="278" font-size="11" fill="#64748b">appended to the cluster — zero data moved</text>
+  <g font-size="10.5" fill="#0369a1" text-anchor="middle">
+    <rect x="600" y="236" width="56" height="56" rx="7" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.5"/><text x="628" y="268">n4</text>
+    <rect x="664" y="236" width="56" height="56" rx="7" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.5"/><text x="692" y="268">n5</text>
+    <rect x="728" y="236" width="56" height="56" rx="7" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.5"/><text x="756" y="268">n6</text>
+    <rect x="792" y="236" width="56" height="56" rx="7" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.5"/><text x="820" y="268">n7</text>
+  </g>
+
+  <!-- Pool 2 (Draining) -->
+  <rect x="288" y="340" width="574" height="116" rx="11" fill="#fff7ed" stroke="#fb923c" stroke-width="2"/>
+  <text x="306" y="366" font-size="13.5" font-weight="700" fill="#9a3412">Pool 2 · Draining  (decommission)</text>
+  <text x="306" y="386" font-size="11.5" fill="#c2410c">no new writes · migrating objects out</text>
+  <text x="306" y="406" font-size="11" fill="#64748b">when empty → remove its nodes</text>
+  <g font-size="10.5" fill="#9a3412" text-anchor="middle">
+    <rect x="600" y="364" width="56" height="56" rx="7" fill="#fff7ed" stroke="#fb923c" stroke-width="1.5"/><text x="628" y="396">o0</text>
+    <rect x="664" y="364" width="56" height="56" rx="7" fill="#fff7ed" stroke="#fb923c" stroke-width="1.5"/><text x="692" y="396">o1</text>
+    <rect x="728" y="364" width="56" height="56" rx="7" fill="#fff7ed" stroke="#fb923c" stroke-width="1.5"/><text x="756" y="396">o2</text>
+    <rect x="792" y="364" width="56" height="56" rx="7" fill="#fff7ed" stroke="#fb923c" stroke-width="1.5"/><text x="820" y="396">o3</text>
+  </g>
+
+  <!-- gateway -> active pools (placement) -->
+  <path d="M236,258 C262,200 270,160 288,142" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <path d="M236,272 C262,272 270,270 288,270" fill="none" stroke="#475569" stroke-width="2.4" marker-end="url(#arrow)"/>
+  <rect x="240" y="300" width="186" height="20" rx="6" fill="#ffffff"/>
+  <text x="333" y="314" text-anchor="middle" font-size="10.5" fill="#475569">new writes → emptiest Active</text>
+
+  <!-- drain: pool2 -> pool1 (migrate) -->
+  <path d="M288,398 C250,398 250,300 288,290" fill="none" stroke="#d97706" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrowA)"/>
+  <rect x="150" y="430" width="250" height="20" rx="6" fill="#fffbeb"/>
+  <text x="275" y="444" text-anchor="middle" font-size="10.5" fill="#b45309">drain: migrate objects → Active pools</text>
+
+  <!-- footer -->
+  <text x="450" y="500" text-anchor="middle" font-size="11.5" fill="#334155">Adding Pool 1 moved zero existing data — new writes just start landing there. Decommission = drain Pool 2, then remove its nodes.</text>
+  <text x="450" y="518" text-anchor="middle" font-size="11.5" fill="#64748b">A pool is exactly today's erasure set; an object lives in one pool for life and is never re-encoded.</text>
+</svg>

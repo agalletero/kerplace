@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 470" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="880" height="470" rx="14" fill="#ffffff"/>
+
+  <text x="440" y="36" text-anchor="middle" font-size="21" font-weight="700" fill="#0f172a">KerPlace distributed cluster</text>
+  <text x="364" y="58" text-anchor="middle" font-size="13" fill="#64748b">one S3 gateway · N drive nodes · Reed-Solomon shards</text>
+
+  <!-- client -->
+  <rect x="34" y="196" width="150" height="74" rx="9" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="109" y="226" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">S3 client</text>
+  <text x="109" y="246" text-anchor="middle" font-size="12" fill="#64748b">mc · aws · SDK</text>
+
+  <!-- client -> gateway -->
+  <line x1="184" y1="233" x2="252" y2="233" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="218" y="223" text-anchor="middle" font-size="11" fill="#64748b">S3 HTTP</text>
+
+  <!-- gateway -->
+  <rect x="256" y="176" width="216" height="116" rx="11" fill="#eef2ff" stroke="#6366f1" stroke-width="2"/>
+  <text x="364" y="206" text-anchor="middle" font-size="15" font-weight="700" fill="#312e81">KerPlace gateway</text>
+  <text x="364" y="228" text-anchor="middle" font-size="12" fill="#3730a3">S3 API :9000 + web console</text>
+  <text x="364" y="248" text-anchor="middle" font-size="12" fill="#3730a3">ErasureStore · PQC encrypt</text>
+  <text x="364" y="272" text-anchor="middle" font-size="11" fill="#6366f1">shards an object into K+M pieces</text>
+
+  <!-- drive nodes -->
+  <g>
+    <rect x="648" y="40" width="200" height="74" rx="9" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.7"/>
+    <text x="748" y="68" text-anchor="middle" font-size="13" font-weight="700" fill="#075985">drive node 0  ·  shard 0</text>
+    <text x="748" y="88" text-anchor="middle" font-size="11.5" fill="#0369a1">:9100 · LocalDrive</text>
+    <text x="748" y="105" text-anchor="middle" font-size="11" fill="#64748b">xl.meta + part.1</text>
+  </g>
+  <g>
+    <rect x="648" y="138" width="200" height="74" rx="9" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.7"/>
+    <text x="748" y="166" text-anchor="middle" font-size="13" font-weight="700" fill="#075985">drive node 1  ·  shard 1</text>
+    <text x="748" y="186" text-anchor="middle" font-size="11.5" fill="#0369a1">:9100 · LocalDrive</text>
+    <text x="748" y="203" text-anchor="middle" font-size="11" fill="#64748b">xl.meta + part.1</text>
+  </g>
+  <g>
+    <rect x="648" y="236" width="200" height="74" rx="9" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.7"/>
+    <text x="748" y="264" text-anchor="middle" font-size="13" font-weight="700" fill="#075985">drive node 2  ·  shard 2</text>
+    <text x="748" y="284" text-anchor="middle" font-size="11.5" fill="#0369a1">:9100 · LocalDrive</text>
+    <text x="748" y="301" text-anchor="middle" font-size="11" fill="#64748b">xl.meta + part.1</text>
+  </g>
+  <g>
+    <rect x="648" y="334" width="200" height="74" rx="9" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.7"/>
+    <text x="748" y="362" text-anchor="middle" font-size="13" font-weight="700" fill="#075985">drive node 3  ·  shard 3</text>
+    <text x="748" y="382" text-anchor="middle" font-size="11.5" fill="#0369a1">:9100 · LocalDrive</text>
+    <text x="748" y="399" text-anchor="middle" font-size="11" fill="#64748b">xl.meta + part.1</text>
+  </g>
+
+  <!-- gateway -> drives -->
+  <path d="M472,210 C560,150 580,90 648,77"   fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <path d="M472,228 C560,210 580,190 648,175" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <path d="M472,250 C560,266 580,256 648,273" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <path d="M472,268 C560,330 580,360 648,371" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <rect x="500" y="150" width="172" height="20" rx="6" fill="#ffffff"/>
+  <text x="586" y="164" text-anchor="middle" font-size="11" fill="#475569">drive RPC · HTTP + bearer</text>
+
+  <!-- footer -->
+  <rect x="40" y="320" width="430" height="118" rx="10" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.3"/>
+  <text x="56" y="346" font-size="12.5" font-weight="700" fill="#0f172a">Durability (parity M = 2, K = 2)</text>
+  <text x="56" y="368" font-size="11.5" fill="#334155">• read survives losing any 2 of 4 nodes (reconstruct)</text>
+  <text x="56" y="386" font-size="11.5" fill="#334155">• write needs a quorum of ≥ K+1 = 3 shards</text>
+  <text x="56" y="404" font-size="11.5" fill="#334155">• heal rebuilds a missing/corrupt shard onto a returned node</text>
+  <text x="56" y="426" font-size="11.5" fill="#64748b">Transport: SSH tunnels (test) or a Tailscale overlay (prod) — encrypted, gateway→drive only.</text>
+</svg>

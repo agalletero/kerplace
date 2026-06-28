@@ -1,0 +1,15 @@
+[Unit]
+Description=KerPlace KMS Vault (bring up + auto-unseal, idempotent)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+# Driven by kerplace-kms-vault.timer (on boot + every 2 min) so a restarted /
+# resealed Vault container self-heals. start.sh is fully idempotent.
+Type=oneshot
+# No RemainAfterExit: the unit must return to 'dead' after each run so the timer
+# can re-trigger it (re-unseal a restarted container). TimeoutStartSec kills a
+# hung run so the next tick retries instead of wedging 'active'.
+TimeoutStartSec=120
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 30); do docker info >/dev/null 2>&1 && exit 0; sleep 2; done; exit 1'
+ExecStart=/path/to/kerplace-kms/start.sh

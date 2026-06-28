@@ -1,0 +1,37 @@
+# Local external KMS for KerPlace — HashiCorp Vault (Transit engine), PERSISTENT + TLS.
+#
+# This Vault runs on YOUR laptop and is the off-host key custody for a KerPlace
+# instance running elsewhere (e.g. AWS). KerPlace stores only ciphertext +
+# Vault-wrapped DEKs; the unwrap happens here, so the remote host never holds the
+# means to decrypt on its own — and you can revoke instantly.
+#
+#   ./start.sh                # bring up, init+unseal (first time), configure transit
+#   docker compose down       # stop (data + key survive in the named volume)
+#
+# Persistence: the Transit key lives in the `vault-data` volume, so a restart does
+# NOT lose it (a KerPlace bucket encrypted against this Vault stays readable).
+# TLS: served with a private CA (vault/tls/); KerPlace trusts it via KP_KMS_CA.
+name: kerplace-kms
+services:
+  vault:
+    image: hashicorp/vault:latest
+    container_name: kerplace-vault
+    restart: unless-stopped          # comes back after a Docker/host restart
+    ports:
+      - "127.0.0.1:8200:8200"        # loopback only; reached via the SSH reverse tunnel
+    cap_add:
+      - IPC_LOCK                      # allow mlock (master key never swaps)
+    environment:
+      VAULT_ADDR:   "https://127.0.0.1:8200"
+      VAULT_CACERT: "/vault/tls/ca.crt"
+    volumes:
+      - ./vault/config:/vault/config:ro
+      - ./vault/tls:/vault/tls:ro
+      - vault-data:/vault/file
+    # The image entrypoint already appends `-config=/vault/config` (a directory
+    # scan), so we pass only `server` — passing -config again would load vault.hcl
+    # twice and the duplicate listener would fail with "address already in use".
+    command: ["server"]
+
+volumes:
+  vault-data:

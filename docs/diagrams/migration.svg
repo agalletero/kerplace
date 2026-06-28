@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 500" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="900" height="500" rx="14" fill="#ffffff"/>
+
+  <text x="450" y="38" text-anchor="middle" font-size="21" font-weight="700" fill="#0f172a">MinIO → KerPlace migration</text>
+  <text x="450" y="60" text-anchor="middle" font-size="13" fill="#64748b">runs entirely over the S3 + madmin API — no disk access, source stays online until cutover</text>
+
+  <!-- source: MinIO (legacy / open edition stripped back) -->
+  <rect x="40" y="120" width="210" height="160" rx="11" fill="#fff7ed" stroke="#fb923c" stroke-width="2"/>
+  <text x="145" y="150" text-anchor="middle" font-size="15" font-weight="700" fill="#9a3412">MinIO  (source)</text>
+  <text x="145" y="170" text-anchor="middle" font-size="11.5" fill="#c2410c">open edition stripped back</text>
+  <line x1="60" y1="182" x2="230" y2="182" stroke="#fed7aa" stroke-width="1.2"/>
+  <text x="62" y="204" font-size="12" fill="#334155">• buckets</text>
+  <text x="62" y="224" font-size="12" fill="#334155">• objects + version history</text>
+  <text x="62" y="244" font-size="12" fill="#334155">• IAM users + policies</text>
+  <text x="62" y="264" font-size="12" fill="#334155">• per-bucket config</text>
+
+  <!-- engine: kerplace-migrate.sh -->
+  <rect x="345" y="120" width="210" height="160" rx="11" fill="#eef2ff" stroke="#6366f1" stroke-width="2"/>
+  <text x="450" y="150" text-anchor="middle" font-size="15" font-weight="700" fill="#312e81">kerplace-migrate.sh</text>
+  <text x="450" y="170" text-anchor="middle" font-size="11.5" fill="#3730a3">orchestrates the mc client</text>
+  <line x1="365" y1="182" x2="535" y2="182" stroke="#c7d2fe" stroke-width="1.2"/>
+  <text x="450" y="206" text-anchor="middle" font-size="12" fill="#334155">reads source, writes dest</text>
+  <text x="450" y="226" text-anchor="middle" font-size="12" fill="#334155">best-effort · resumable</text>
+  <text x="450" y="246" text-anchor="middle" font-size="12" fill="#334155">never aborts on one error</text>
+  <text x="450" y="266" text-anchor="middle" font-size="11.5" fill="#6366f1">summary of manual follow-ups</text>
+
+  <!-- destination: KerPlace -->
+  <rect x="650" y="120" width="210" height="160" rx="11" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="755" y="150" text-anchor="middle" font-size="15" font-weight="700" fill="#166534">KerPlace  (destination)</text>
+  <text x="755" y="170" text-anchor="middle" font-size="11.5" fill="#15803d">post-quantum · erasure-coded</text>
+  <line x1="670" y1="182" x2="840" y2="182" stroke="#bbf7d0" stroke-width="1.2"/>
+  <text x="672" y="204" font-size="12" fill="#334155">• buckets recreated</text>
+  <text x="672" y="224" font-size="12" fill="#334155">• data + history copied</text>
+  <text x="672" y="244" font-size="12" fill="#334155">• policies preserved</text>
+  <text x="672" y="264" font-size="12" fill="#334155">• secrets rotated (CSV)</text>
+
+  <!-- arrows source -> engine -> dest -->
+  <line x1="250" y1="200" x2="343" y2="200" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="296" y="192" text-anchor="middle" font-size="10.5" fill="#64748b">read</text>
+  <line x1="555" y1="200" x2="648" y2="200" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="601" y="192" text-anchor="middle" font-size="10.5" fill="#64748b">write</text>
+
+  <!-- phase band -->
+  <rect x="40" y="306" width="820" height="92" rx="10" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.3"/>
+  <text x="56" y="328" font-size="12.5" font-weight="700" fill="#0f172a">Migration phases — ordered pipeline, each also runnable on its own</text>
+
+  <!-- six pills -->
+  <g font-size="12" font-weight="700">
+    <rect x="54"  y="344" width="120" height="34" rx="8" fill="#eef2ff" stroke="#6366f1" stroke-width="1.3"/>
+    <text x="114" y="366" text-anchor="middle" fill="#312e81">buckets</text>
+    <rect x="186" y="344" width="120" height="34" rx="8" fill="#eef2ff" stroke="#6366f1" stroke-width="1.3"/>
+    <text x="246" y="366" text-anchor="middle" fill="#312e81">config</text>
+    <rect x="318" y="344" width="120" height="34" rx="8" fill="#eef2ff" stroke="#6366f1" stroke-width="1.3"/>
+    <text x="378" y="366" text-anchor="middle" fill="#312e81">iam</text>
+    <rect x="450" y="344" width="120" height="34" rx="8" fill="#eef2ff" stroke="#6366f1" stroke-width="1.3"/>
+    <text x="510" y="366" text-anchor="middle" fill="#312e81">data</text>
+    <rect x="582" y="344" width="120" height="34" rx="8" fill="#eef2ff" stroke="#6366f1" stroke-width="1.3"/>
+    <text x="642" y="366" text-anchor="middle" fill="#312e81">versions</text>
+    <rect x="714" y="344" width="120" height="34" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.3"/>
+    <text x="774" y="366" text-anchor="middle" fill="#166534">verify</text>
+  </g>
+
+  <!-- footer note -->
+  <rect x="40" y="414" width="820" height="66" rx="10" fill="#fffbeb" stroke="#fde68a" stroke-width="1.3"/>
+  <text x="56" y="438" font-size="12" font-weight="700" fill="#92400e">Two things to know</text>
+  <text x="56" y="458" font-size="11.5" fill="#334155">• Secret keys cannot be read from MinIO → each user is recreated with a fresh secret, written to migrated-credentials.csv (distribute them).</text>
+  <text x="56" y="474" font-size="11.5" fill="#334155">• Full version history (--with-versions) is a best-effort, order-sensitive replay onto a fresh destination — verify critical buckets afterwards.</text>
+</svg>
