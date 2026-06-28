@@ -297,6 +297,7 @@ first). For the design-level threat model and KerPlace's *declared* limits, see
 | Guide | What it covers |
 |---|---|
 | [docs/POST_QUANTUM.md](docs/POST_QUANTUM.md) | What post-quantum encryption is and why it matters (plain language) |
+| [docs/ENCRYPTION.md](docs/ENCRYPTION.md) | At-rest encryption: on by default, transparent, the triggers, the algorithm per provider |
 | [docs/GLOSSARY.md](docs/GLOSSARY.md) | Every term — S3, bucket, KMS, KEK, DEK, Vault, FUSE, rclone, mc, alias… |
 | [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) | Honest threat model: what KerPlace does and does **not** protect |
 | [docs/OFFHOST_KMS_CUSTODY.md](docs/OFFHOST_KMS_CUSTODY.md) | The "your data on their host, your keys on your device" deployment |

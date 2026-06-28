@@ -186,7 +186,10 @@ impl Config {
             auth_enabled: env_var("AUTH").map(|v| !falsy(&v)).unwrap_or(true),
             console_address: env_var("CONSOLE_ADDRESS").unwrap_or_else(|| "0.0.0.0:9001".to_string()),
             console_enabled: env_var("CONSOLE").map(|v| !falsy(&v)).unwrap_or(true),
-            encryption_enabled: env_var("ENCRYPT").map(|v| truthy(&v)).unwrap_or(false),
+            // Secure by default: at-rest encryption is ON unless explicitly disabled
+            // (KP_ENCRYPT=false). With the `file` key provider this is post-quantum
+            // (ML-KEM-1024 DEK wrap + AES-256-GCM), transparent to S3 clients, no KMS.
+            encryption_enabled: env_var("ENCRYPT").map(|v| !falsy(&v)).unwrap_or(true),
             // TLS is on if the flag is truthy or both cert+key paths are given.
             tls_enabled: env_var("TLS").map(|v| truthy(&v)).unwrap_or(false)
                 || (env_var("TLS_CERT").is_some() && env_var("TLS_KEY").is_some()),
@@ -275,5 +278,23 @@ mod tests {
         let v2 = sealed_violations(&cfg);
         assert!(!v2.iter().any(|m| m.contains("TLS")));
         assert!(!v2.iter().any(|m| m.contains("at-rest encryption")));
+    }
+
+    /// Secure by default: at-rest encryption is ON when nothing is configured;
+    /// it is only off when explicitly disabled (`KP_ENCRYPT=false`).
+    #[test]
+    fn encryption_on_by_default() {
+        // Robust against a polluted test environment: only assert when the flag
+        // is genuinely unset (any prefix), which is the case in CI.
+        if std::env::var("KP_ENCRYPT").is_ok()
+            || std::env::var("MYNIO_ENCRYPT").is_ok()
+            || std::env::var("MINIO_ENCRYPT").is_ok()
+        {
+            return;
+        }
+        assert!(
+            Config::from_env().encryption_enabled,
+            "at-rest encryption must default to ON"
+        );
     }
 }

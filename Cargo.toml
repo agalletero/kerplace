@@ -1,6 +1,6 @@
 [package]
 name = "kerplace"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "KerPlace — an S3-compatible, post-quantum object storage server in Rust"
 license = "Apache-2.0"
