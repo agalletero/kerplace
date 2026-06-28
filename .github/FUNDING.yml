@@ -1,0 +1,18 @@
+# Adds a "Sponsor" button to the repository.
+# Fill in the platforms you actually use; entries for accounts that don't exist
+# are simply ignored by GitHub. See:
+# https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+github: [agalletero]            # GitHub Sponsors — requires enabling Sponsors for this account
+
+# A custom URL works immediately, with no program to join (PayPal, Ko-fi, a
+# donation/contact page, etc.). Up to 4 URLs.
+# custom: ["https://www.kerplace.com/"]
+
+# Other supported platforms (uncomment + set your handle):
+# ko_fi: your-handle
+# buy_me_a_coffee: your-handle
+# open_collective: your-collective
+# patreon: your-handle
+# liberapay: your-handle
+# polar: your-handle
