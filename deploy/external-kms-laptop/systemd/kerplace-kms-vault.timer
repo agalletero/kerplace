@@ -1,9 +1,10 @@
 [Unit]
-Description=Keep the KerPlace KMS Vault up and unsealed
+Description=Keep the KerPlace KMS Vault container up (sealed; unseal is manual via USB)
 
 [Timer]
-# Run shortly after boot, then re-check every 2 minutes so a resealed Vault
-# (container restart) recovers automatically. Persistent catches missed runs.
+# Run shortly after boot, then re-check every 2 minutes so a stopped Vault
+# container comes back up. It does NOT auto-unseal (steady-state start.sh leaves
+# it sealed); unsealing is manual from the USB. Persistent catches missed runs.
 OnBootSec=20s
 OnUnitActiveSec=2min
 Persistent=true

@@ -91,21 +91,31 @@ A persistent, TLS-enabled Vault (Transit engine, key `kerplace`). The bundled
 bring it up, initialise & unseal it, and mint a least-privilege token. See
 [`deploy/external-kms-laptop/README.md`](../deploy/external-kms-laptop/README.md).
 
-Then open the reverse tunnel so the host can reach it:
+Then open the tunnel so the host can reach it. A **single** SSH connection carries
+both directions of the mode — custody (`-R`, host → your Vault) *and* the S3 data
+plane (`-L`, your laptop → KerPlace), so object payloads never touch the public
+Internet:
 
 ```bash
-ssh -N -R 8200:localhost:8200 user@your-host     # AWS:localhost:8200 -> laptop Vault
+ssh -N -T \
+  -R 127.0.0.1:8200:127.0.0.1:8200 \   # custody: host reaches the laptop Vault
+  -L 127.0.0.1:9000:127.0.0.1:9000 \   # data:    laptop reaches KerPlace S3
+  -o KexAlgorithms=mlkem768x25519-sha256 \   # post-quantum KEX pinned by policy
+  user@your-host
 ```
 
-(Run it as a service — e.g. a `systemd --user` unit with `Restart=always`, or
-`autossh` — so it survives logout and reboots. The Vault should be persistent and
-auto-unsealed for the same reason.)
+Run it as the bundled `systemd --user` unit (which pins the KEX and host key and
+recycles a dead link). See the hardened operator runbook
+[`deploy/external-kms-laptop/HARDENING.md`](../deploy/external-kms-laptop/HARDENING.md)
+for the full provisioning (loopback bind, scoped S3 user, USB unseal, host-key
+pinning). The Vault should be persistent for the same "survive a reboot" reason.
 
 ### On the host — KerPlace
 
 ```bash
 KP_DATA_DIR=/kerplace \
 KP_ENCRYPT=true \
+KP_ADDRESS=127.0.0.1:9000 \
 KP_KEY_PROVIDER=kms \
 KP_KMS_ENDPOINT=https://localhost:8200 \
 KP_KMS_KEY=kerplace \
@@ -113,6 +123,10 @@ KP_KMS_TOKEN=<the scoped Vault token> \
 KP_KMS_CA=/etc/kerplace/kms-ca.crt \
 kerplace
 ```
+
+`KP_ADDRESS=127.0.0.1:9000` binds the S3 API to **loopback only** — reachable
+solely through the tunnel's `-L` forward — so the public `9000` in the host's
+firewall/security group can and should be **closed**. Zero public S3 surface.
 
 | Variable | Meaning |
 |---|---|
@@ -171,20 +185,24 @@ work and *disconnect* when you are done. A single control script (the reference 
 drives the whole lifecycle from the laptop:
 
 ```bash
-./adminKP.sh --enable                 # connect: KMS up → tunnel → start KerPlace → mount buckets
-./adminKP.sh --disable                # disconnect: unmount → stop KerPlace → drop tunnel (host isolated)
+./adminKP.sh --enable                 # connect: unseal (USB) → tunnel → start KerPlace → mount buckets
+./adminKP.sh --disable                # disconnect: unmount → stop KerPlace → drop tunnel → wipe s3fs passwd
 ./adminKP.sh --mount  <bucket> [path] # mount one bucket ad-hoc (default ./buckets/<bucket>)
 ./adminKP.sh --umount <bucket|path>   # unmount one (by name or path)
-./adminKP.sh --backup [file]          # encrypted KMS snapshot (disaster recovery)
+./adminKP.sh --backup [dir]           # encrypted KMS snapshot — two artifacts (data / unseal)
+./adminKP.sh --provision-usb [path]   # migrate the unseal material from disk to the encrypted USB
 ./adminKP.sh --status                 # what's up / mounted
 ```
 
-`--enable`, in order: (1) ensures the local Vault (KMS) is up and **unsealed**;
-(2) brings up the reverse tunnel and checks the host can reach the KMS over TLS;
-(3) starts KerPlace on the host — its fail-closed boot check now passes because the
-KMS is reachable; (4) mounts every bucket as a local folder. `--disable` reverses
-it cleanly: flush + unmount, stop KerPlace, then **drop the tunnel** so the host is
-fully isolated from your keys again.
+`--enable`, in order: (1) brings up the local Vault and **unseals it from the USB**
+(decrypted in memory, never to disk) — no USB, no unseal, and it aborts; (2) brings
+up the tunnel and checks the host can reach the KMS over TLS; (3) starts KerPlace on
+the host — its fail-closed boot check now passes because the KMS is reachable;
+(4) mounts every bucket as a local folder. `--disable` reverses it cleanly: flush +
+unmount, stop KerPlace, **drop the tunnel**, and **shred the s3fs passwd** so the
+host is fully isolated from your keys again. Config lives in an env file
+(`<XDG_CONFIG_HOME>/kerplace/adminkp.env`); see
+[`HARDENING.md`](../deploy/external-kms-laptop/HARDENING.md).
 
 > **The script is the single on/off switch.** KerPlace's auto-start on the host and
 > the tunnel's auto-start are disabled on purpose; only the local Vault stays
@@ -276,13 +294,15 @@ You have **two independent things to back up**, and need both for full recovery:
 
 | What | How | Why it matters |
 |---|---|---|
-| **The KMS** (keys/config) | `./adminKP.sh --backup` → one gpg-encrypted archive | Without it the DEKs can never be unwrapped → the host's ciphertext is permanently undecryptable. |
+| **The KMS** (keys/config) | `./adminKP.sh --backup` → two gpg-encrypted artifacts | Without it the DEKs can never be unwrapped → the host's ciphertext is permanently undecryptable. |
 | **The bucket data** | classic backup of the mounted `./buckets/` dirs while `--enabled` | The objects themselves. |
 
-`--backup` snapshots exactly what rebuilds the KMS on a reinstalled laptop: the
-**Vault storage** (the non-exportable Transit key lives there), the **unseal key**
-(`.vault-init.json`), the **TLS CA/cert**, the compose/config/scripts, and a
-`RESTORE.md`. Restore = `docker compose up` + restore the volume + unseal → the
+`--backup` snapshots exactly what rebuilds the KMS on a reinstalled laptop, split
+into **two artifacts with independent passphrases** so the dangerous material is
+custodied separately: `kms-data-<ts>.tar.gz.gpg` (the **Vault storage** with the
+non-exportable Transit key, TLS CA/cert, compose/config/scripts, and `RESTORE.md`)
+and `kms-unseal-<ts>.tar.gz.gpg` (only the **unseal key** + token — small, changes
+almost never). Restore = `docker compose up` + restore the volume + unseal → the
 *same* Transit key is back, and the host (whose `KP_KMS_TOKEN`/`KP_KMS_CA` are
 unchanged) decrypts again. A read-path **DEK cache** (`KP_KMS_CACHE_TTL`, default
 300s) serves recently-read objects briefly without a KMS call; writes always mint a

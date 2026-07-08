@@ -1,11 +1,13 @@
 [Unit]
-Description=KerPlace KMS Vault (bring up + auto-unseal, idempotent)
+Description=KerPlace KMS Vault (keep the container up; sealed — no auto-unseal)
 Wants=network-online.target
 After=network-online.target
 
 [Service]
-# Driven by kerplace-kms-vault.timer (on boot + every 2 min) so a restarted /
-# resealed Vault container self-heals. start.sh is fully idempotent.
+# Driven by kerplace-kms-vault.timer (on boot + every 2 min) so a stopped Vault
+# container self-heals (comes back up). start.sh is idempotent and, in steady
+# state, only does `compose up` and leaves the Vault SEALED — the unseal material
+# lives on the USB (T2), so unsealing is manual via `adminKP.sh --enable`.
 Type=oneshot
 # No RemainAfterExit: the unit must return to 'dead' after each run so the timer
 # can re-trigger it (re-unseal a restarted container). TimeoutStartSec kills a

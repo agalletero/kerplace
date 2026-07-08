@@ -17,26 +17,33 @@ Hosting (KerPlace, /kerplace = ciphertext + vault:v1:…)  ──TLS over SSH tu
 | `docker-compose.yml` | Vault in server mode, persistent (`vault-data` volume), TLS, loopback-only. |
 | `config/vault.hcl` | Vault config: file storage + TLS listener. |
 | `gen-certs.sh` | Generates a private CA + Vault server cert into `vault/tls/` (→ `ca.crt` is your `KP_KMS_CA`). |
-| `start.sh` | Idempotent: gen-certs, `compose up`, init + **unseal**, ensure Transit key + scoped token. Also the unseal-keeper the timer runs. |
-| `systemd/` | `--user` units: the reverse tunnel (`Restart=always`) + a timer that keeps Vault unsealed. |
-| `adminKP.sh` | VPN-style control of the whole thing: `--enable` / `--disable` / `--mount` / `--umount` / `--backup` / `--status`. **Edit its config block first.** See **[OFFHOST_KMS_CUSTODY.md](../../docs/OFFHOST_KMS_CUSTODY.md)**. |
+| `start.sh` | Container lifter. **First run:** gen-certs, `compose up`, init + bootstrap Transit key + scoped token (writes `.vault-init.json`, to be moved to the USB). **Steady state:** just `compose up` and leaves the Vault **sealed** — no secrets on disk; unseal is manual from the USB via `adminKP.sh`. |
+| `systemd/` | `--user` units: the SSH tunnel (both forwards, KEX-pinned) + a timer that keeps the Vault **container up** (sealed; it no longer auto-unseals). |
+| `adminKP.sh` | VPN-style control: `--enable` / `--disable` / `--mount` / `--umount` / `--backup` / `--provision-usb` / `--status`. Config comes from `<XDG_CONFIG_HOME>/kerplace/adminkp.env` (copy `adminkp.env.example`). |
+| `adminkp.env.example` | Config template for `adminKP.sh` (`KP_ADMIN_*` vars). |
+| `HARDENING.md` | **Hardened operator runbook** (español): loopback bind, USB unseal, KEX/host-key pinning, scoped S3 user, split backup. Start here. |
 
-Runtime secrets (`vault/tls/`, `.vault-init.json`, `.kms-token`) are **gitignored** —
-they are generated locally and must never be committed.
+Runtime secrets (`vault/tls/`, `.vault-init.json`, `.kms-token`, `adminkp.env`,
+`*.tar.gz.gpg`) are **gitignored** — they are generated/held locally and must never
+be committed.
 
 ## Quick start (on the laptop)
 
 ```bash
 ./start.sh
-# prints KP_KMS_* values and saves:
-#   .vault-init.json  → unseal key + root token   (BACK THIS UP)
+# prints KP_KMS_* values and, on first run, saves:
+#   .vault-init.json  → unseal key + root token   (TEMPORARY — move to USB below)
 #   .kms-token        → the scoped token for KerPlace
 ```
 
-Then open the tunnel so the host can reach this Vault as `https://localhost:8200`:
+Then move the unseal material off the disk onto your USB (see `HARDENING.md`), and
+open the tunnel. A single SSH connection carries custody (`-R`) and the S3 data
+plane (`-L`), with the KEX pinned to post-quantum:
 
 ```bash
-ssh -N -R 8200:localhost:8200 user@your-host
+./adminKP.sh --provision-usb           # .vault-init.json -> encrypted USB, then shred the original
+ssh -N -T -R 127.0.0.1:8200:127.0.0.1:8200 -L 127.0.0.1:9000:127.0.0.1:9000 \
+  -o KexAlgorithms=mlkem768x25519-sha256 user@your-host
 ```
 
 For a setup that **survives logout and reboot**, install the `systemd/` user units
@@ -46,18 +53,21 @@ For a setup that **survives logout and reboot**, install the `systemd/` user uni
 mkdir -p ~/.config/systemd/user && cp systemd/* ~/.config/systemd/user/
 loginctl enable-linger "$USER"          # start user services at boot, before login
 systemctl --user daemon-reload
-systemctl --user enable --now kerplace-kms-vault.timer kerplace-kms-tunnel.service
+systemctl --user enable --now kerplace-kms-vault.timer   # keeps the container up (sealed)
+# do NOT auto-enable the tunnel — adminKP.sh starts/stops it on --enable/--disable
 ```
 
-- **kerplace-kms-tunnel.service** — the reverse tunnel, `Restart=always`
-  (autossh-equivalent; no extra package needed).
-- **kerplace-kms-vault.timer** → **…vault.service** — brings Vault up and
-  **auto-unseals** it on boot and every 2 min, so a restarted container self-heals.
+- **kerplace-kms-tunnel.service** — the SSH tunnel (custody `-R` + data `-L`,
+  KEX-pinned, host-key-pinned), `Restart=on-failure` (autossh-equivalent).
+- **kerplace-kms-vault.timer** → **…vault.service** — keeps the Vault **container
+  up** on boot and every 2 min (sealed; it no longer auto-unseals — unsealing is
+  manual from the USB via `adminKP.sh --enable`).
 
 ## On the host (KerPlace)
 
 ```bash
 KP_DATA_DIR=/kerplace KP_ENCRYPT=true \
+KP_ADDRESS=127.0.0.1:9000 \
 KP_KEY_PROVIDER=kms \
 KP_KMS_ENDPOINT=https://localhost:8200 \
 KP_KMS_KEY=kerplace \
@@ -66,9 +76,10 @@ KP_KMS_CA=/etc/kerplace/kms-ca.crt \
 kerplace
 ```
 
-Copy `vault/tls/ca.crt` to the host as `/etc/kerplace/kms-ca.crt`. KerPlace
-fail-closed-checks the KMS at boot, so it will not start if the laptop is
-unreachable.
+`KP_ADDRESS=127.0.0.1:9000` binds S3 to **loopback only** (reachable via the tunnel's
+`-L`), so **close the public 9000** in the host firewall. Copy `vault/tls/ca.crt` to
+the host as `/etc/kerplace/kms-ca.crt`. KerPlace fail-closed-checks the KMS at boot,
+so it will not start if the laptop is unreachable.
 
 ## Security notes (read before trusting it with real data)
 
