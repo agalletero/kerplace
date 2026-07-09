@@ -297,11 +297,12 @@ fn cmd_unseal(c: &Config) -> Result<()> {
 /// Pide la passphrase. Desde un terminal usa rpassword; sin TTY (p.ej. lanzado por
 /// systemd al insertar el USB) usa systemd-ask-password (prompt gráfico en KDE/GNOME).
 fn get_passphrase(prompt: &str) -> Result<String> {
-    use std::io::IsTerminal;
-    if std::io::stdin().is_terminal() {
-        return Ok(rpassword::prompt_password(format!("{prompt} "))?);
+    // TERMINAL primero: rpassword lee de /dev/tty, así funciona por SSH en un host
+    // headless (sin escritorio). Solo si NO hay terminal controlante (p.ej. lanzado
+    // por systemd 'kpc watch' al insertar el USB en un escritorio) se recurre al GUI.
+    if let Ok(p) = rpassword::prompt_password(format!("{prompt} ")) {
+        return Ok(p);
     }
-    // Sin TTY (lanzado por systemd al insertar el USB): prueba prompts gráficos.
     let try_gui = |cmd: &str, args: &[&str]| -> Option<String> {
         let o = Command::new(cmd).args(args).output().ok()?;
         if !o.status.success() {
