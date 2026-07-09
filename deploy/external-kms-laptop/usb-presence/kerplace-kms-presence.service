@@ -1,0 +1,12 @@
+[Unit]
+Description=KerPlace custody: seal the KMS when the custody USB is removed (backstop for udev)
+After=openbao.service
+
+[Service]
+EnvironmentFile=-/etc/kerplace/custody.env
+ExecStart=/usr/local/sbin/kerplace-kms-presence
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+# kpc — config del cliente de custodia. Cópialo a:
+#   /etc/kerplace/kpc.toml   (todo el sistema)   ó   ~/.config/kerplace/kpc.toml
+# Rutas ABSOLUTAS (no uses ~).
+
+[kms]
+addr    = "https://127.0.0.1:8200"          # endpoint del KMS (OpenBao), vía túnel
+cacert  = "/etc/openbao/tls/ca.crt"          # CA privada del KMS (legible por quien usa kpc)
+service = "openbao"                          # servicio systemd a reiniciar en 'kpc seal'
+
+[usb]
+label       = "Ventoy"                       # LABEL del filesystem del USB de custodia
+uuid        = "3431-7DD1"                     # UUID del filesystem (presencia autoritativa)
+unseal_file = "kerplace-custody/unseal.json.gpg"   # ruta dentro del USB
+
+# Una o más instancias/hosts KerPlace (1 KMS puede servir a varias).
+[[instances]]
+name        = "gcp"
+tunnel_unit = "kerplace-gcp-tunnel.service"  # unit systemd --user del túnel
+s3_endpoint = "http://127.0.0.1:9000"        # endpoint S3 (loopback vía túnel)
+access_key  = "kpadmin"
+secret_file = "/etc/kerplace/gcp-s3.secret"  # fichero con el secret (chmod 600)
+buckets     = [ { name = "obsidian", mountpoint = "/home/USER/kerplace/obsidian" } ]

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# kerplace-kms-seal — acción de sellado de custodia. Idempotente.
+# Desmonta (lazy) todos los s3fs de KerPlace y sella el KMS (OpenBao). Lo llaman
+# tanto la regla udev (al RETIRAR el USB) como el monitor de presencia (backstop).
+# El lazy-umount evita que un mount roto cuelgue `df -h` / `ls` hasta un timeout.
+[ -r /etc/kerplace/custody.env ] && . /etc/kerplace/custody.env
+SVC="${KP_KMS_SERVICE:-openbao}"
+
+while read -r _ mp fstype _; do
+  [ "$fstype" = "fuse.s3fs" ] || continue
+  logger -t kerplace-kms-seal "lazy-umount $mp"
+  umount -l "$mp" 2>/dev/null || fusermount3 -uz "$mp" 2>/dev/null || true
+done < /proc/mounts
+
+/usr/bin/systemctl restart "$SVC"

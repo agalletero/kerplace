@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 420" font-family="ui-sans-serif,system-ui,Segoe UI,Roboto,Arial,sans-serif">
+  <rect width="760" height="420" rx="14" fill="#f6f8fb" stroke="#e2e8f0"/>
+  <text x="28" y="42" font-size="20" font-weight="700" fill="#0f172a">3 · In use — reading a file from your mounted folder</text>
+  <text x="28" y="66" font-size="13" fill="#475569">You see plaintext. The key to it never leaves your device.</text>
+
+  <!-- your side -->
+  <rect x="28" y="92" width="300" height="200" rx="12" fill="#ede9fe" stroke="#c4b5fd"/>
+  <text x="44" y="118" font-size="13" font-weight="700" fill="#5b21b6">Your laptop</text>
+  <rect x="44" y="132" width="268" height="46" rx="8" fill="#ffffff" stroke="#c4b5fd"/>
+  <text x="58" y="153" font-size="12" fill="#3730a3">~/buckets/reports/q3.pdf</text>
+  <text x="58" y="169" font-size="11" fill="#7c3aed">you open it — you see the real file</text>
+  <rect x="44" y="188" width="268" height="88" rx="8" fill="#f5f3ff" stroke="#c4b5fd"/>
+  <text x="58" y="210" font-size="12" font-weight="700" fill="#5b21b6">Your key vault</text>
+  <text x="58" y="230" font-size="11.5" fill="#5b21b6">unwraps this one file's key —</text>
+  <text x="58" y="246" font-size="11.5" fill="#5b21b6">on your laptop — and returns</text>
+  <text x="58" y="262" font-size="11.5" fill="#5b21b6">just that key over the tunnel.</text>
+
+  <!-- host side -->
+  <rect x="432" y="92" width="300" height="200" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="448" y="118" font-size="13" font-weight="700" fill="#334155">The host — KerPlace</text>
+  <rect x="448" y="132" width="268" height="60" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+  <text x="462" y="154" font-size="11.5" fill="#1e40af">holds ciphertext + the sealed key;</text>
+  <text x="462" y="172" font-size="11.5" fill="#1e40af">asks YOUR vault to unwrap it,</text>
+  <text x="462" y="186" font-size="11.5" fill="#1e40af">then decrypts AES-256-GCM.</text>
+  <rect x="448" y="202" width="268" height="74" rx="8" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="462" y="224" font-size="11.5" font-weight="700" fill="#475569">It cannot read anything alone.</text>
+  <text x="462" y="244" font-size="11.5" fill="#475569">No connection to your vault =</text>
+  <text x="462" y="260" font-size="11.5" fill="#475569">no key = it fails closed.</text>
+
+  <!-- arrows -->
+  <path d="M328 178 L432 158" stroke="#94a3b8" stroke-width="2" marker-end="url(#a4)"/>
+  <text x="360" y="150" font-size="10.5" fill="#64748b">request</text>
+  <path d="M432 236 L328 232" stroke="#7c3aed" stroke-width="2" marker-end="url(#a4p)"/>
+  <text x="352" y="256" font-size="10.5" fill="#7c3aed">one key ↩</text>
+
+  <!-- kill switch -->
+  <rect x="28" y="312" width="704" height="88" rx="10" fill="#dcfce7" stroke="#86efac"/>
+  <text x="46" y="338" font-size="13" font-weight="700" fill="#166534">The guarantee you're buying</text>
+  <text x="46" y="360" font-size="12" fill="#166534">The server can decrypt ONLY while your device is connected and unlocked. Close the laptop, drop the</text>
+  <text x="46" y="378" font-size="12" fill="#166534">tunnel, or pull the USB that holds the key — and it instantly loses the ability to read anything, even for</text>
+  <text x="46" y="396" font-size="12" fill="#166534">the person who runs the server. Who guarantees it: KerPlace does the crypto, your device holds the key, you hold the device.</text>
+
+  <defs>
+    <marker id="a4" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#94a3b8"/></marker>
+    <marker id="a4p" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#7c3aed"/></marker>
+  </defs>
+</svg>
