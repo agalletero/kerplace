@@ -8,7 +8,7 @@ rest** and **off-host key custody**. A self-hostable, sovereign alternative to M
 [![Release](https://img.shields.io/github/v/release/agalletero/kerplace?label=release&color=2ea44f)](https://github.com/agalletero/kerplace/releases/latest)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-db61a2?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/agalletero)
 
-🌐 **[www.kerplace.com](https://www.kerplace.com)** &nbsp;·&nbsp; 📦 **[Download v0.1.0 →](https://github.com/agalletero/kerplace/releases/latest)** &nbsp;·&nbsp; 💜 **[Sponsor the project →](https://github.com/sponsors/agalletero)**
+🌐 **[www.kerplace.com](https://www.kerplace.com)** &nbsp;·&nbsp; 📦 **[Download latest →](https://github.com/agalletero/kerplace/releases/latest)** &nbsp;·&nbsp; 💜 **[Sponsor the project →](https://github.com/sponsors/agalletero)**
 
 > **Status: v0.1 — honest about its limits.** The S3 data plane, post-quantum
 > at-rest encryption, erasure coding and the distributed cluster are working and
