@@ -12,11 +12,15 @@ rest** and **off-host key custody**. A self-hostable, sovereign alternative to M
 
 > **Status: v0.1 — honest about its limits.** The S3 data plane, post-quantum
 > at-rest encryption, erasure coding and the distributed cluster are working and
-> validated against `mc` / `aws` / `s3fs` / `rclone`. Gateway high-availability,
-> LDAP, storage tiering and cross-site replication are 🗓️ planned, **not shipped**.
-> KerPlace publishes its limits rather than hiding them — see [Status](#status),
-> the [security model](docs/SECURITY_MODEL.md), and [SECURITY.md](SECURITY.md)
-> for reporting issues.
+> validated against `mc` / `aws` / `s3fs` / `rclone`. **Off-host key custody
+> (HYOK)** — your keys stay on a USB/laptop and reach the server over a
+> post-quantum SSH tunnel, so the host seals and can no longer decrypt the moment
+> the key leaves — is shipped and validated on live deployments. A web console,
+> OIDC single sign-on and a MinIO migration tool ship today too. Gateway
+> high-availability, LDAP, storage tiering and cross-site replication are 🗓️
+> planned, **not shipped**. KerPlace publishes its limits rather than hiding them
+> — see [Status](#status), the [security model](docs/SECURITY_MODEL.md), and
+> [SECURITY.md](SECURITY.md) for reporting issues.
 
 ---
 
