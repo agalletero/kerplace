@@ -57,6 +57,7 @@ async fn build_app(oidc: Option<Arc<crate::auth::oidc::Oidc>>) -> (Router, tempf
         tls_key: None,
         minio_compat: true,
         profile: crate::config::Profile::Open,
+        access_log: None,
     };
     let state = AppState {
         store: Arc::new(store),
@@ -64,6 +65,7 @@ async fn build_app(oidc: Option<Arc<crate::auth::oidc::Oidc>>) -> (Router, tempf
         iam: Arc::new(IamStore::root_only("k", "s")),
         crypto: CryptoContext::new_aes(MasterKey::generate()),
         oidc,
+        access_log: None,
     };
     (console::build_router(state), tmp)
 }

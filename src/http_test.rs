@@ -45,6 +45,7 @@ async fn test_app() -> (Router, tempfile::TempDir) {
         tls_key: None,
         minio_compat: true,
         profile: crate::config::Profile::Open,
+        access_log: None,
     };
     let state = AppState {
         store: Arc::new(store),
@@ -52,6 +53,7 @@ async fn test_app() -> (Router, tempfile::TempDir) {
         iam: Arc::new(crate::iam::IamStore::root_only("k", "s")),
         crypto: CryptoContext::new_aes(MasterKey::generate()),
         oidc: None,
+        access_log: None,
     };
     (build_router(state), tmp)
 }

@@ -98,6 +98,13 @@ pub async fn auth_middleware(
         });
     let mut access_key: Option<String> = None;
 
+    // The access log must see refused attempts too ("alice tried to read
+    // `payroll` and was denied" is precisely what an auditor looks for), and the
+    // denial paths below return early — so capture the target up front, while
+    // the request is still intact.
+    let method = req.method().clone();
+    let uri = req.uri().clone();
+
     if state.config.auth_enabled {
         let has_auth_header = req.headers().contains_key(axum::http::header::AUTHORIZATION);
         let is_presigned = req
@@ -120,26 +127,39 @@ pub async fn auth_middleware(
         };
         let identity = match result {
             Ok(id) => id,
-            Err(e) => return e.into_response_with_resource(&path),
+            // Unauthenticated: the claimed access key is unverified, so the
+            // record carries no identity — only "someone from this IP tried
+            // this and was refused".
+            Err(e) => {
+                let res = e.into_response_with_resource(&path);
+                log_access(&state, &method, &uri, &access_key, &remote_ip, &res);
+                return res;
+            }
         };
+
+        // Identity is verified from here on: name it in the audit trail even if
+        // the request is about to be refused.
+        access_key = Some(identity.access_key.clone());
 
         // Enforce the identity's policy against the requested action (*what*).
         let action = crate::iam::action_for(req.method(), &path);
         if !crate::iam::Policy::from_name(&identity.policy).allows(action) {
-            return S3Error::AccessDenied.into_response_with_resource(&path);
+            let res = S3Error::AccessDenied.into_response_with_resource(&path);
+            log_access(&state, &method, &uri, &access_key, &remote_ip, &res);
+            return res;
         }
 
         // Enforce the identity's bucket scope (*where*). ANDed with the policy:
         // a `readwrite` credential scoped to one bucket may not touch another.
         // Unscoped credentials (the default) pass unchanged.
         if !identity.allows_bucket(crate::iam::bucket_for(&path)) {
-            return S3Error::AccessDenied.into_response_with_resource(&path);
+            let res = S3Error::AccessDenied.into_response_with_resource(&path);
+            log_access(&state, &method, &uri, &access_key, &remote_ip, &res);
+            return res;
         }
 
-        // Record the requester for the audit trail before the identity is moved
-        // into the request extensions (admin handlers need the secret key there
-        // for madmin payload (de)cryption).
-        access_key = Some(identity.access_key.clone());
+        // The identity is moved into the request extensions here (admin handlers
+        // need the secret key there for madmin payload (de)cryption).
         req.extensions_mut().insert(identity);
     }
 
@@ -154,5 +174,49 @@ pub async fn auth_middleware(
 
     // Publish who/where for the storage layer to stamp onto version writes.
     let ctx = crate::audit::AuditContext { access_key, remote_ip };
-    crate::audit::scope(ctx, next.run(req)).await
+    let res = crate::audit::scope(ctx.clone(), next.run(req)).await;
+
+    // Record the finished request — reads included, which the version-metadata
+    // trail cannot capture.
+    if let Some(logger) = &state.access_log {
+        logger.log(&crate::access_log::entry_for(
+            &method,
+            &uri,
+            &ctx,
+            res.status().as_u16(),
+        ));
+    }
+    res
+}
+
+/// Append one access-log record for a request that is being refused early.
+///
+/// # Parameters
+/// - `state`: application state (holds the optional log sink).
+/// - `method`: the request method.
+/// - `uri`: the request URI.
+/// - `access_key`: the verified requester, or `None` if authentication failed.
+/// - `remote_ip`: best-effort client IP.
+/// - `res`: the response about to be returned (its status is recorded).
+fn log_access(
+    state: &AppState,
+    method: &axum::http::Method,
+    uri: &axum::http::Uri,
+    access_key: &Option<String>,
+    remote_ip: &Option<String>,
+    res: &Response,
+) {
+    let Some(logger) = &state.access_log else {
+        return;
+    };
+    let ctx = crate::audit::AuditContext {
+        access_key: access_key.clone(),
+        remote_ip: remote_ip.clone(),
+    };
+    logger.log(&crate::access_log::entry_for(
+        method,
+        uri,
+        &ctx,
+        res.status().as_u16(),
+    ));
 }

@@ -3,6 +3,7 @@
 //! Entry point: loads configuration, constructs the storage backend, builds
 //! the HTTP router and serves the S3 API.
 
+mod access_log;
 mod audit;
 mod auth;
 mod cluster;
@@ -213,6 +214,8 @@ as fallback in that order, so an existing MinIO service file keeps working:
     KP_TLS                   true to serve over HTTPS
     KP_USERS                 Seed users: ak:sk:policy[:bucket1|bucket2] , comma-separated
                              (4th field scopes the credential to those buckets)
+    KP_ACCESS_LOG            Path to the JSONL audit trail (who/what/when, reads and
+                             denials included). Off when unset.
     KP_DEBUG                 log level for support: debug | trace | info | warn | error
 
 DISTRIBUTED (see docs/CLUSTERING.md):
@@ -453,12 +456,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("KP_PROFILE=sealed requires a reachable OIDC IdP, but discovery failed (see the WARN above)".into());
     }
 
+    // Fine-grained audit trail (who did what, when — reads included). Failing to
+    // open it is fatal: a deployment that asked for an audit log must never serve
+    // silently without one.
+    let access_log = match &config.access_log {
+        Some(path) => {
+            let logger = access_log::AccessLogger::new(path)
+                .await
+                .map_err(|e| format!("cannot open access log {}: {e}", path.display()))?;
+            tracing::info!(path = %path.display(), "access log enabled (JSONL)");
+            Some(Arc::new(logger))
+        }
+        None => None,
+    };
+
     let state = AppState {
         store,
         config: Arc::new(config.clone()),
         iam: Arc::new(iam),
         crypto: crypto_ctx,
         oidc,
+        access_log,
     };
 
     // Build the TLS configuration once and share it between API and console.

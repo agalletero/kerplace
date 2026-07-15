@@ -24,4 +24,7 @@ pub struct AppState {
     /// External OIDC identity provider (D1), or `None` when `KP_OIDC_ISSUER` is
     /// unset. Drives console SSO login and STS `AssumeRoleWithWebIdentity`.
     pub oidc: Option<std::sync::Arc<crate::auth::oidc::Oidc>>,
+    /// Fine-grained access log sink (`KP_ACCESS_LOG`), or `None` when the
+    /// chronological audit trail is off. See [`crate::access_log`].
+    pub access_log: Option<Arc<crate::access_log::AccessLogger>>,
 }

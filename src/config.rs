@@ -163,6 +163,9 @@ pub struct Config {
     pub minio_compat: bool,
     /// Deployment posture (`KP_PROFILE`); `sealed` enforces a regulated baseline.
     pub profile: Profile,
+    /// Path for the structured access log (`KP_ACCESS_LOG`), or `None` to keep
+    /// the fine-grained audit trail off. See [`crate::access_log`].
+    pub access_log: Option<PathBuf>,
 }
 
 impl Config {
@@ -199,6 +202,7 @@ impl Config {
             // Lenient here (unknown ⇒ open); `main` re-parses strictly to fail fast
             // on an unknown name and to validate the `sealed` invariants.
             profile: parse_profile(&env_var("PROFILE").unwrap_or_default()).unwrap_or(Profile::Open),
+            access_log: env_var("ACCESS_LOG").map(PathBuf::from),
         }
     }
 }
@@ -214,11 +218,12 @@ mod tests {
     fn env_precedence_for_all_variables() {
         // The full set of configuration variable suffixes (read across
         // config.rs and main.rs). Keep in sync when a new KP_* var is added.
-        const SUFFIXES: [&str; 26] = [
-            "ADDRESS", "AUTH", "BACKEND", "CLUSTER_LOCKS", "CLUSTER_SECRET", "CONSOLE",
-            "CONSOLE_ADDRESS", "DATA_DIR", "DEBUG", "DRIVE_ADDR", "ENCRYPT", "ERASURE_BLOCK",
-            "ERASURE_DRIVES", "ERASURE_PARITY", "MINIO_COMPAT", "NODE_INDEX", "NODES", "PROFILE",
-            "REGION", "ROLE", "ROOT_PASSWORD", "ROOT_USER", "TLS", "TLS_CERT", "TLS_KEY", "USERS",
+        const SUFFIXES: [&str; 27] = [
+            "ACCESS_LOG", "ADDRESS", "AUTH", "BACKEND", "CLUSTER_LOCKS", "CLUSTER_SECRET",
+            "CONSOLE", "CONSOLE_ADDRESS", "DATA_DIR", "DEBUG", "DRIVE_ADDR", "ENCRYPT",
+            "ERASURE_BLOCK", "ERASURE_DRIVES", "ERASURE_PARITY", "MINIO_COMPAT", "NODE_INDEX",
+            "NODES", "PROFILE", "REGION", "ROLE", "ROOT_PASSWORD", "ROOT_USER", "TLS", "TLS_CERT",
+            "TLS_KEY", "USERS",
         ];
         for s in SUFFIXES {
             let kp = format!("KP_{s}");
