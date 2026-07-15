@@ -1,88 +1,88 @@
-# Guía de operador — modo custodia endurecido (hardening)
+# Operator guide — hardened custody mode (hardening)
 
-Runbook del despliegue **custody-tethered** de KerPlace endurecido: plano de datos
-por el túnel, unseal desde USB, canal SSH fijado a PQC y credenciales scoped. El
-*concepto* está en [`docs/OFFHOST_KMS_CUSTODY.md`](../../docs/OFFHOST_KMS_CUSTODY.md);
-aquí van los **pasos de aprovisionamiento** y el ciclo de vida endurecido.
+Runbook for the hardened **custody-tethered** deployment of KerPlace: data plane
+over the tunnel, unseal from USB, SSH channel pinned to PQC and scoped credentials.
+The *concept* lives in [`docs/OFFHOST_KMS_CUSTODY.md`](../../docs/OFFHOST_KMS_CUSTODY.md);
+what follows are the **provisioning steps** and the hardened lifecycle.
 
-Piezas: `adminKP.sh` (orquestador, único on/off), `start.sh` (levanta el contenedor
-Vault; sin secretos en estado estacionario), la unit `systemd --user` del túnel y
-un USB de custodia con el material de unseal.
+Pieces: `adminKP.sh` (orchestrator, the single on/off switch), `start.sh` (brings up
+the Vault container; no secrets at steady state), the `systemd --user` unit for the
+tunnel and a custody USB holding the unseal material.
 
 ---
 
-## 0. Configuración (una vez)
+## 0. Configuration (one-time)
 
-Toda la config sale de un fichero de entorno; el script aborta si falta:
+All config comes from an environment file; the script aborts if it is missing:
 
 ```bash
 mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/kerplace"
 cp deploy/external-kms-laptop/adminkp.env.example \
    "${XDG_CONFIG_HOME:-$HOME/.config}/kerplace/adminkp.env"
 chmod 600 "${XDG_CONFIG_HOME:-$HOME/.config}/kerplace/adminkp.env"
-# edita las 5 variables obligatorias (KP_ADMIN_HOST, _SSH_KEY, _ACCESS_KEY,
-# _SECRET_FILE, _KMS_DIR). El resto tiene defaults.
+# edit the 5 mandatory variables (KP_ADMIN_HOST, _SSH_KEY, _ACCESS_KEY,
+# _SECRET_FILE, _KMS_DIR). Everything else has defaults.
 ```
 
-Ruta alternativa: `./adminKP.sh --config <ruta> <subcomando>`.
+Alternative path: `./adminKP.sh --config <path> <subcommand>`.
 
 ---
 
-## 1. Plano de datos por el túnel + cerrar el puerto S3 (T1)
+## 1. Data plane over the tunnel + close the S3 port (T1)
 
-El tráfico S3 (el contenido de los objetos) ya **no** viaja por Internet: entra por
-el mismo canal SSH que la custodia, en sentido inverso.
+S3 traffic (the object payloads) does **not** travel over the Internet any more: it
+comes in through the same SSH channel as the custody, in the reverse direction.
 
-- La unit del túnel publica dos forwards (ver §5):
-  `-R 127.0.0.1:8200` (custodia) y `-L 127.0.0.1:9000` (datos).
-- `KP_ADMIN_S3_ENDPOINT=http://127.0.0.1:9000` (loopback; el cifrado en tránsito lo
-  da SSH/ML-KEM).
-- **En el host**, KerPlace escucha solo en loopback y se cierra el puerto público:
+- The tunnel unit publishes two forwards (see §5):
+  `-R 127.0.0.1:8200` (custody) and `-L 127.0.0.1:9000` (data).
+- `KP_ADMIN_S3_ENDPOINT=http://127.0.0.1:9000` (loopback; encryption in transit is
+  provided by SSH/ML-KEM).
+- **On the host**, KerPlace listens on loopback only and the public port is closed:
   ```bash
-  # /etc/kerplace.env en el host
+  # /etc/kerplace.env on the host
   KP_ADDRESS=127.0.0.1:9000
-  # luego, en el security group / firewall del host: CERRAR el 9000 entrante.
+  # then, in the host's security group / firewall: CLOSE inbound 9000.
   ```
-  `KP_ADDRESS` es configuración pura (no toca el core). Con esto la superficie S3
-  pública es cero: sin túnel no hay endpoint alcanzable.
+  `KP_ADDRESS` is pure configuration (it does not touch the core). With this, the
+  public S3 surface is zero: with no tunnel there is no reachable endpoint.
 
 ---
 
-## 2. Pin criptográfico y de identidad del canal SSH (T4)
+## 2. Cryptographic and identity pinning of the SSH channel (T4)
 
-1. **KEX post-cuántico por política.** Tanto la unit como `ssh_aws()` fuerzan
-   `KexAlgorithms=mlkem768x25519-sha256` (variable `KP_ADMIN_KEX`). Si el servidor
-   no ofrece ML-KEM, la conexión **falla** (no degrada a clásico).
+1. **Post-quantum KEX by policy.** Both the unit and `ssh_aws()` force
+   `KexAlgorithms=mlkem768x25519-sha256` (variable `KP_ADMIN_KEX`). If the server
+   does not offer ML-KEM, the connection **fails** (it does not downgrade to classic).
 
-2. **Host key pinning (sin TOFU).** `StrictHostKeyChecking=yes` contra un
-   `known_hosts` dedicado (`KP_ADMIN_KNOWN_HOSTS`). Poblarlo una vez, en red de
-   confianza, y **verificar el fingerprint** por un canal aparte:
+2. **Host key pinning (no TOFU).** `StrictHostKeyChecking=yes` against a dedicated
+   `known_hosts` (`KP_ADMIN_KNOWN_HOSTS`). Populate it once, on a trusted network,
+   and **verify the fingerprint** over a separate channel:
    ```bash
    ssh-keyscan -t ed25519 <HOST> >> "$HOME/.config/kerplace/known_hosts"
-   ssh-keygen -lf "$HOME/.config/kerplace/known_hosts"   # compara el fingerprint
+   ssh-keygen -lf "$HOME/.config/kerplace/known_hosts"   # compare the fingerprint
    ```
 
-3. **Clave del túnel restringida en el host.** En `~/.ssh/authorized_keys` del
-   usuario del host, la clave de custodia va con restricciones (nada de shell, pty,
-   agent, X11; solo los dos forwards del modo):
+3. **Tunnel key restricted on the host.** In the `~/.ssh/authorized_keys` of the host
+   user, the custody key carries restrictions (no shell, pty, agent or X11; only the
+   two forwards this mode needs):
    ```
-   restrict,port-forwarding,permitlisten="127.0.0.1:8200",permitopen="127.0.0.1:9000" ssh-ed25519 AAAA...clave-de-custodia... custodia
+   restrict,port-forwarding,permitlisten="127.0.0.1:8200",permitopen="127.0.0.1:9000" ssh-ed25519 AAAA...custody-key... custody
    ```
-   `permitlisten` habilita el −R (custodia); `permitopen` habilita el −L (datos).
+   `permitlisten` enables the −R (custody); `permitopen` enables the −L (data).
 
 ---
 
-## 3. Credenciales del plano S3 (T3)
+## 3. S3 data plane credentials (T3)
 
-1. **Usuario S3 scoped `kp-mounter`** (no el root de KerPlace). Créalo con una
-   política limitada a los buckets a montar (list/get/put/delete sobre esos ARN,
-   nada de admin):
+1. **Scoped S3 user `kp-mounter`** (not the KerPlace root). Create it with a policy
+   limited to the buckets to be mounted (list/get/put/delete on those ARNs, no admin
+   rights):
    ```bash
    mc admin user add   <alias-root> kp-mounter <SECRET>
    mc admin policy create <alias-root> kp-mounter kp-mounter-policy.json
    mc admin policy attach <alias-root> kp-mounter --user kp-mounter
    ```
-   `kp-mounter-policy.json` (ajusta los ARN a tus buckets):
+   `kp-mounter-policy.json` (adjust the ARNs to your buckets):
    ```json
    {
      "Version": "2012-10-17",
@@ -96,106 +96,107 @@ el mismo canal SSH que la custodia, en sentido inverso.
      ]
    }
    ```
-   Pon ese usuario en la config: `KP_ADMIN_ACCESS_KEY=kp-mounter` y su secret en
-   `KP_ADMIN_SECRET_FILE` (chmod 600). El root queda solo para admin explícito.
+   Put that user in the config: `KP_ADMIN_ACCESS_KEY=kp-mounter` and its secret in
+   `KP_ADMIN_SECRET_FILE` (chmod 600). Root is left for explicit admin only.
 
-2. **Higiene del passwd de s3fs.** `adminKP.sh` lo crea con `umask 077` y lo
-   **borra** (`shred -u`) en `--disable`. Tras `--disable` no debe existir
-   `~/.passwd-s3fs*`.
+2. **s3fs passwd hygiene.** `adminKP.sh` creates it with `umask 077` and **deletes**
+   it (`shred -u`) on `--disable`. After `--disable` no `~/.passwd-s3fs*` should
+   exist.
 
 ---
 
-## 4. Unseal desde USB, no desde disco (T2)
+## 4. Unseal from USB, not from disk (T2)
 
-El material de unseal (unseal key + root token) **no reside en el disco del
-portátil**: vive cifrado con GPG simétrico (AES-256) en un USB de custodia. Factores
-= posesión (USB) + conocimiento (passphrase).
+The unseal material (unseal key + root token) **does not live on the laptop's
+disk**: it lives encrypted with symmetric GPG (AES-256) on a custody USB. Factors =
+possession (USB) + knowledge (passphrase).
 
-**Migración inicial** (tras el primer `start.sh`, que aún deja `.vault-init.json` en
-disco temporalmente):
+**Initial migration** (after the first `start.sh`, which still leaves
+`.vault-init.json` on disk temporarily):
 
 ```bash
-# haz un backup ANTES (ver §6)
+# take a backup FIRST (see §6)
 ./adminKP.sh --backup
-# formatea/etiqueta el USB con LABEL=KPCUSTODY (o ajusta KP_ADMIN_USB_LABEL)
-./adminKP.sh --provision-usb            # localiza el USB por LABEL, cifra, verifica
-#   round-trip (cifra→descifra→compara), y OFRECE borrar el original con shred.
+# format/label the USB with LABEL=KPCUSTODY (or adjust KP_ADMIN_USB_LABEL)
+./adminKP.sh --provision-usb            # finds the USB by LABEL, encrypts, verifies
+#   the round-trip (encrypt→decrypt→compare), and OFFERS to shred the original.
 ```
 
-`--provision-usb` es idempotente y solo ofrece borrar el original tras verificar el
-round-trip. También acepta una ruta explícita: `--provision-usb /media/$USER/KPCUSTODY`.
+`--provision-usb` is idempotent and only offers to delete the original once the
+round-trip is verified. It also accepts an explicit path:
+`--provision-usb /media/$USER/KPCUSTODY`.
 
-**En cada `--enable`**: si el Vault está sellado, el material se descifra **en
-memoria** (nunca a disco) y se alimenta a `vault operator unseal -` por stdin.
-Passphrase interactiva (pinentry). Sin USB presente ⇒ `[ERR]` y aborta (el túnel no
-se levanta si el unseal falla). El escape `ADMINKP_PASSPHRASE` existe solo para
-automatización (queda expuesto en `/proc/<pid>/environ`).
+**On every `--enable`**: if Vault is sealed, the material is decrypted **in memory**
+(never to disk) and fed to `vault operator unseal -` over stdin. Interactive
+passphrase (pinentry). No USB present ⇒ `[ERR]` and abort (the tunnel does not come
+up if the unseal fails). The `ADMINKP_PASSPHRASE` escape hatch exists only for
+automation (it is exposed in `/proc/<pid>/environ`).
 
-> **Fase 2 (no implementada, evolución):** upgrade a YubiKey/FIDO2 con clave
-> residente (`sk-ssh-ed25519`) para posesión no clonable, y regla udev para
-> auto-enable al insertar / auto-disable al extraer.
+> **Phase 2 (not implemented, future evolution):** upgrade to YubiKey/FIDO2 with a
+> resident key (`sk-ssh-ed25519`) for non-clonable possession, and a udev rule for
+> auto-enable on insert / auto-disable on removal.
 
 ---
 
-## 5. Unit systemd del túnel (T6)
+## 5. systemd unit for the tunnel (T6)
 
-Plantilla en [`systemd/kerplace-kms-tunnel.service`](systemd/kerplace-kms-tunnel.service):
-los dos forwards de §1, el pin KEX + known_hosts de §2, `ExitOnForwardFailure=yes`,
-`ServerAliveInterval=15`/`CountMax=3`, `ConnectTimeout=10`, `Restart=on-failure`,
-`RestartSec=5s`. Instálala como unit de usuario y activa linger para que sobreviva a
-logout/reboot:
+Template in [`systemd/kerplace-kms-tunnel.service`](systemd/kerplace-kms-tunnel.service):
+the two forwards from §1, the KEX + known_hosts pinning from §2,
+`ExitOnForwardFailure=yes`, `ServerAliveInterval=15`/`CountMax=3`,
+`ConnectTimeout=10`, `Restart=on-failure`, `RestartSec=5s`. Install it as a user unit
+and enable linger so it survives logout/reboot:
 
 ```bash
 mkdir -p ~/.config/systemd/user
 cp deploy/external-kms-laptop/systemd/*.service \
    deploy/external-kms-laptop/systemd/*.timer   ~/.config/systemd/user/
-# edita YOUR_USER@YOUR_HOST y las rutas de clave/known_hosts (%h = tu home)
-loginctl enable-linger "$USER"                 # servicios de usuario al arranque
+# edit YOUR_USER@YOUR_HOST and the key/known_hosts paths (%h = your home)
+loginctl enable-linger "$USER"                 # user services at boot
 systemctl --user daemon-reload
-systemctl --user enable --now kerplace-kms-vault.timer   # mantiene el contenedor up (sellado)
+systemctl --user enable --now kerplace-kms-vault.timer   # keeps the container up (sealed)
 ```
 
-**No** habilites la unit del túnel para auto-arranque: `adminKP.sh` es el único
-interruptor y la arranca/para en `--enable`/`--disable` (`systemctl --user start/stop`).
-El Vault local sí es persistente (el timer lo mantiene up, sellado).
+Do **not** enable the tunnel unit for auto-start: `adminKP.sh` is the single switch
+and starts/stops it on `--enable`/`--disable` (`systemctl --user start/stop`).
+The local Vault is persistent (the timer keeps it up, sealed).
 
 ---
 
-## 6. Backup: dos artefactos separados (T7)
+## 6. Backup: two separate artifacts (T7)
 
-`--backup` produce **dos** ficheros con **passphrases independientes**, para
-custodiarlos por separado:
+`--backup` produces **two** files with **independent passphrases**, so they can be
+held in separate custody:
 
 ```bash
-./adminKP.sh --backup [dir]     # dir por defecto: $HOME
-#   kms-data-<ts>.tar.gz.gpg    -> volumen Vault + config + certs (grande, rota a menudo)
-#   kms-unseal-<ts>.tar.gz.gpg  -> .vault-init.json + token (pequeño, cambia casi nunca)
+./adminKP.sh --backup [dir]     # dir defaults to: $HOME
+#   kms-data-<ts>.tar.gz.gpg    -> Vault volume + config + certs (large, rotates often)
+#   kms-unseal-<ts>.tar.gz.gpg  -> .vault-init.json + token (small, almost never changes)
 ```
 
-El de **unseal** solo (con su passphrase) permite des-sellar: guárdalo en una
-custodia distinta a la del de datos. Si ya migraste el unseal al USB, el backup lo
-extrae del USB para que el DR siga completo. Restauración y aviso de expiración del
-token (720h): ver el `RESTORE.md` incluido en el artefacto de datos.
+The **unseal** one alone (with its passphrase) is enough to unseal: keep it in a
+different custody from the data one. If you already migrated the unseal material to
+the USB, the backup pulls it from the USB so that DR remains complete. Restore and
+token expiry warning (720h): see the `RESTORE.md` included in the data artifact.
 
-Passphrases por variable (automatización): `ADMINKP_PASSPHRASE` (datos) y
+Passphrases via variables (automation): `ADMINKP_PASSPHRASE` (data) and
 `ADMINKP_UNSEAL_PASSPHRASE` (unseal).
 
 ---
 
-## 7. Garantías fail-closed (checklist)
+## 7. Fail-closed guarantees (checklist)
 
-- Túnel caído ⇒ `mc ls` falla, KerPlace no sirve datos (bind loopback + puerto
-  cerrado), `--status` lo refleja. Ninguna ruta desde Internet alcanza el S3.
-- sshd sin ML-KEM ⇒ la conexión **falla** (KEX fijado por política), no degrada.
-- Sin USB ⇒ `--enable` aborta en el unseal; el túnel no queda levantado.
-- Tras `--disable` ⇒ no hay `~/.passwd-s3fs*`, ni montajes, el túnel está parado y
-  el Vault local sigue up (sellado). El material de unseal descifrado nunca toca el
-  disco.
+- Tunnel down ⇒ `mc ls` fails, KerPlace serves no data (loopback bind + closed
+  port), `--status` reflects it. No route from the Internet reaches S3.
+- sshd without ML-KEM ⇒ the connection **fails** (KEX pinned by policy), no
+  downgrade.
+- No USB ⇒ `--enable` aborts at the unseal; the tunnel is not left up.
+- After `--disable` ⇒ no `~/.passwd-s3fs*`, no mounts, the tunnel is stopped and the
+  local Vault stays up (sealed). Decrypted unseal material never touches the disk.
 
-> **Limitación conocida (no cubierta por este modo).** El endurecimiento anterior
-> cierra el *plano de despliegue*. Persiste un hueco en el *core* fuera del alcance
-> de esta guía: una escritura (`PUT`) que llegue con el KMS inalcanzable **a mitad
-> de sesión** puede responder `200` con un objeto de 0 bytes en lugar de fallar en
-> cerrado (la ruta de lectura ya se cerró en v0.1.1; la de escritura no). Requiere
-> cambio de core; se aborda por separado. Con el puerto cerrado y bind en loopback,
-> el vector solo aplica a un cliente ya dentro del túnel cuando el KMS cae.
+> **Known limitation (not covered by this mode).** The hardening above closes the
+> *deployment plane*. A gap remains in the *core*, out of scope for this guide: a
+> write (`PUT`) that arrives while the KMS is unreachable **mid-session** may respond
+> `200` with a 0-byte object instead of failing closed (the read path was already
+> closed in v0.1.1; the write path was not). It requires a core change; it is being
+> addressed separately. With the port closed and the loopback bind, the vector only
+> applies to a client already inside the tunnel when the KMS goes down.
