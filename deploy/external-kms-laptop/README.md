@@ -21,7 +21,7 @@ Hosting (KerPlace, /kerplace = ciphertext + vault:v1:…)  ──TLS over SSH tu
 | `systemd/` | `--user` units: the SSH tunnel (both forwards, KEX-pinned) + a timer that keeps the Vault **container up** (sealed; it no longer auto-unseals). |
 | `adminKP.sh` | VPN-style control: `--enable` / `--disable` / `--mount` / `--umount` / `--backup` / `--provision-usb` / `--status`. Config comes from `<XDG_CONFIG_HOME>/kerplace/adminkp.env` (copy `adminkp.env.example`). |
 | `adminkp.env.example` | Config template for `adminKP.sh` (`KP_ADMIN_*` vars). |
-| `HARDENING.md` | **Hardened operator runbook** (español): loopback bind, USB unseal, KEX/host-key pinning, scoped S3 user, split backup. Start here. |
+| `HARDENING.md` | **Hardened operator runbook**: loopback bind, USB unseal, KEX/host-key pinning, scoped S3 user, split backup. Start here. |
 
 Runtime secrets (`vault/tls/`, `.vault-init.json`, `.kms-token`, `adminkp.env`,
 `*.tar.gz.gpg`) are **gitignored** — they are generated/held locally and must never
