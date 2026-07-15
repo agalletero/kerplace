@@ -113,7 +113,8 @@ All configuration is via environment variables (MinIO-compatible defaults):
 | `KP_TLS` | `false` | Set `true` to serve over HTTPS with a self-signed dev cert |
 | `KP_TLS_CERT` | — | Path to a PEM certificate chain (enables TLS; overrides self-signed) |
 | `KP_TLS_KEY` | — | Path to the PEM private key paired with `KP_TLS_CERT` |
-| `KP_USERS` | — | Seed IAM users: `accessKey:secretKey:policy` entries, comma-separated. Policies: `readwrite`, `readonly`, `writeonly`, `admin` |
+| `KP_USERS` | — | Seed IAM users: `accessKey:secretKey:policy[:bucket1\|bucket2]` entries, comma-separated. Policies: `readwrite`, `readonly`, `writeonly`, `admin`. The optional 4th field **scopes** the credential to those buckets (omit ⇒ every bucket) |
+| `KP_ACCESS_LOG` | — | Path to the JSONL audit trail: one record per authenticated request (who, what, when, outcome) — **reads and denials included**. Off when unset |
 | `KP_BACKEND` | `erasure` | Storage backend: `erasure` (default) or `fs` (legacy single-disk mirror) |
 | `KP_ERASURE_DRIVES` | 4 sub-dirs | Comma-separated local drive dirs for the erasure backend |
 | `KP_ERASURE_PARITY` | `N/2` | Parity shards `M` (survive losing `M` drives/nodes) |
@@ -233,6 +234,15 @@ Working & validated with `mc` / `aws` / `s3fs` / `rclone` / `curl`:
   console login via your IdP (Keycloak/Entra/Okta) + STS
   `AssumeRoleWithWebIdentity` for temporary S3 credentials, with group→policy
   mapping. See the **[Security model](docs/SECURITY_MODEL.md)**.
+- **Per-bucket authorization:** a credential can be scoped to an explicit bucket
+  allow-list, so "Alice → `reports`, Bob → `logs`, Carol → both" is enforced, not
+  advisory. The canned policy stays the *what* (read/write/admin); the scope is
+  the *where*, and the two are ANDed. Set it at boot (`KP_USERS`, 4th field) or at
+  runtime (`PUT /kerplace/admin/v3/set-user-buckets?accessKey=…&buckets=a|b`).
+  `ListBuckets` is filtered to the caller's scope, so a scoped credential never
+  learns the other buckets exist. Credentials with no scope keep reaching every
+  bucket, so existing deployments are unaffected. Recipes and limits:
+  **[Access control](docs/ACCESS_CONTROL.md)**.
 - At-rest encryption: **ML-KEM-1024 (post-quantum) + AES-256-GCM**, per-bucket SSE.
   Envelope encryption with a pluggable key-custody seam (`KP_KEY_PROVIDER`):
   `file` (default; on-host key), **`passphrase`** (Argon2id-derived KEK, never on
@@ -254,6 +264,11 @@ Working & validated with `mc` / `aws` / `s3fs` / `rclone` / `curl`:
   (access key), **where** (client IP) and **when**. Surfaced compat-safely as
   the standard S3 `<Owner>` in `ListObjectVersions` and `x-kerplace-author` /
   `x-kerplace-source-ip` headers on GET/HEAD — no standard S3 response is changed.
+- **Access log (`KP_ACCESS_LOG`):** the other half of the trail — one JSONL record
+  per authenticated request with who / what / when / outcome. Unlike version
+  metadata it captures **reads** (`GetObject`, listings) and **refused attempts**
+  (`403`, attributed to the identity that was denied), which is what an auditor
+  actually asks for. No object content and no credentials are ever written to it.
 - TLS/HTTPS, web console, and `s3fs` mount compatibility.
 - **Deployment profiles** (`KP_PROFILE=open|sealed`): `sealed` is a one-word
   regulated posture — the server refuses to start unless TLS + auth + at-rest
