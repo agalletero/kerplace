@@ -123,9 +123,16 @@ pub async fn auth_middleware(
             Err(e) => return e.into_response_with_resource(&path),
         };
 
-        // Enforce the identity's policy against the requested action.
+        // Enforce the identity's policy against the requested action (*what*).
         let action = crate::iam::action_for(req.method(), &path);
         if !crate::iam::Policy::from_name(&identity.policy).allows(action) {
+            return S3Error::AccessDenied.into_response_with_resource(&path);
+        }
+
+        // Enforce the identity's bucket scope (*where*). ANDed with the policy:
+        // a `readwrite` credential scoped to one bucket may not touch another.
+        // Unscoped credentials (the default) pass unchanged.
+        if !identity.allows_bucket(crate::iam::bucket_for(&path)) {
             return S3Error::AccessDenied.into_response_with_resource(&path);
         }
 

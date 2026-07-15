@@ -211,6 +211,8 @@ as fallback in that order, so an existing MinIO service file keeps working:
     KP_BACKEND               erasure (default) | fs
     KP_ENCRYPT               true to encrypt at rest (post-quantum + AES-256)
     KP_TLS                   true to serve over HTTPS
+    KP_USERS                 Seed users: ak:sk:policy[:bucket1|bucket2] , comma-separated
+                             (4th field scopes the credential to those buckets)
     KP_DEBUG                 log level for support: debug | trace | info | warn | error
 
 DISTRIBUTED (see docs/CLUSTERING.md):

@@ -152,6 +152,36 @@ pub struct Identity {
     pub policy: String,
     /// Whether the credential is enabled.
     pub enabled: bool,
+    /// Buckets this identity may touch, or `None` for "every bucket".
+    ///
+    /// The canned [`Policy`] answers *what* an identity may do (read / write /
+    /// admin); this answers *where*. The two are ANDed: a `readwrite` identity
+    /// scoped to `["reports"]` can read and write `reports` and nothing else.
+    /// `None` (the default, and the state of every pre-existing credential)
+    /// preserves the historical behaviour of unrestricted bucket access.
+    pub buckets: Option<Vec<String>>,
+}
+
+impl Identity {
+    /// Whether this identity may act on `bucket`.
+    ///
+    /// # Parameters
+    /// - `bucket`: the bucket the request targets, or `None` for requests that
+    ///   are not scoped to one (e.g. `ListBuckets` at `/`).
+    ///
+    /// # Returns
+    /// `true` when the identity is unscoped, when the request targets no
+    /// bucket, or when `bucket` is in the identity's allow-list.
+    pub fn allows_bucket(&self, bucket: Option<&str>) -> bool {
+        match (&self.buckets, bucket) {
+            // Unscoped credential: every bucket (back-compat default).
+            (None, _) => true,
+            // Not a bucket-scoped request; `ListBuckets` results are filtered to
+            // the identity's scope by the handler instead of denied here.
+            (Some(_), None) => true,
+            (Some(allowed), Some(b)) => allowed.iter().any(|a| a == b),
+        }
+    }
 }
 
 /// On-disk record for a non-root user.
@@ -162,6 +192,10 @@ struct StoredUser {
     policy: String,
     #[serde(default = "default_true")]
     enabled: bool,
+    /// Bucket allow-list; absent/`null` means "every bucket" so documents
+    /// written by older versions keep working unchanged.
+    #[serde(default)]
+    buckets: Option<Vec<String>>,
 }
 
 /// Default policy for a deserialized user missing the field.
@@ -172,6 +206,24 @@ fn default_policy() -> String {
 /// Default enabled state for a deserialized user missing the field.
 fn default_true() -> bool {
     true
+}
+
+/// Parse a pipe-separated bucket allow-list (`"reports|logs"`).
+///
+/// # Parameters
+/// - `raw`: the raw field; may be empty or contain blank entries.
+///
+/// # Returns
+/// `Some(names)` with trimmed, non-empty entries, or `None` when the field
+/// carries no usable name — which means "unscoped" (every bucket).
+pub fn parse_bucket_list(raw: &str) -> Option<Vec<String>> {
+    let list: Vec<String> = raw
+        .split('|')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect();
+    (!list.is_empty()).then_some(list)
 }
 
 /// The persisted users document (`.kerplace.sys/iam/users.json`).
@@ -214,7 +266,12 @@ impl IamStore {
     }
 
     /// Load the store: seed root from config, read persisted users, then apply
-    /// any `KP_USERS` env seed (`ak:sk:policy` entries, comma-separated).
+    /// any `KP_USERS` env seed (`ak:sk:policy[:bucket1|bucket2]` entries,
+    /// comma-separated).
+    ///
+    /// The optional 4th field scopes the credential to a bucket allow-list
+    /// (pipe-separated); omitting it leaves the user unscoped (every bucket).
+    /// Example: `alice:s3cr3t:readwrite:reports,bob:hunter2:readonly:logs|audit`.
     ///
     /// # Parameters
     /// - `iam_dir`: directory holding `users.json`.
@@ -250,10 +307,12 @@ impl IamStore {
                     continue;
                 }
                 let policy = parts.get(2).map(|s| s.to_string()).unwrap_or_else(default_policy);
+                let buckets = parts.get(3).and_then(|s| parse_bucket_list(s));
                 users.entry(ak).or_insert(StoredUser {
                     secret_key: parts[1].to_string(),
                     policy,
                     enabled: true,
+                    buckets,
                 });
             }
         }
@@ -327,6 +386,10 @@ impl IamStore {
             secret_key: B64.encode(hmac_sha256(&self.root_secret, access_key.as_bytes())),
             policy: policy.name().to_string(),
             enabled: true,
+            // STS credentials are unscoped: the signed payload carries a policy
+            // id but no bucket list, so a scope cannot be encoded without a
+            // format bump. Bucket scoping applies to stored users only.
+            buckets: None,
         })
     }
 
@@ -345,6 +408,7 @@ impl IamStore {
                 secret_key: self.root_secret.clone(),
                 policy: Policy::Admin.name().to_string(),
                 enabled: true,
+                buckets: None, // root is never bucket-scoped
             });
         }
         // Stateless STS credential (self-validating, no shared state).
@@ -357,6 +421,7 @@ impl IamStore {
                 secret_key: u.secret_key.clone(),
                 policy: u.policy.clone(),
                 enabled: u.enabled,
+                buckets: u.buckets.clone(),
             });
         }
         None
@@ -372,6 +437,7 @@ impl IamStore {
             secret_key: self.root_secret.clone(),
             policy: Policy::Admin.name().to_string(),
             enabled: true,
+            buckets: None,
         }];
         let users = self.users.read().unwrap();
         let mut keys: Vec<&String> = users.keys().collect();
@@ -383,6 +449,7 @@ impl IamStore {
                 secret_key: u.secret_key.clone(),
                 policy: u.policy.clone(),
                 enabled: u.enabled,
+                buckets: u.buckets.clone(),
             });
         }
         out
@@ -412,12 +479,18 @@ impl IamStore {
         }
         {
             let mut users = self.users.write().unwrap();
+            // Replacing an existing credential (e.g. rotating its secret) must
+            // not silently widen its reach: carry over any bucket scope already
+            // attached, otherwise the user would come back unscoped — a
+            // privilege escalation. Use `set_buckets` to change the scope.
+            let buckets = users.get(access_key).and_then(|u| u.buckets.clone());
             users.insert(
                 access_key.to_string(),
                 StoredUser {
                     secret_key: secret_key.to_string(),
                     policy: policy.to_string(),
                     enabled: true,
+                    buckets,
                 },
             );
         }
@@ -488,6 +561,38 @@ impl IamStore {
         self.persist().await
     }
 
+    /// Scope an existing user to a bucket allow-list (or clear the scope), then
+    /// persist.
+    ///
+    /// This is the *where* half of authorization; the canned policy stays the
+    /// *what*. Both are enforced together by the auth middleware.
+    ///
+    /// # Parameters
+    /// - `access_key`: the user to update.
+    /// - `buckets`: `Some(list)` to restrict the user to exactly those buckets,
+    ///   or `None` to remove the restriction (every bucket).
+    ///
+    /// # Returns
+    /// `Ok(())`, or [`S3Error::InvalidArgument`] if the user is unknown or is
+    /// the root key (which is never scoped).
+    pub async fn set_buckets(
+        &self,
+        access_key: &str,
+        buckets: Option<Vec<String>>,
+    ) -> Result<(), S3Error> {
+        if access_key == self.root_key {
+            return Err(S3Error::InvalidArgument("cannot scope root user".into()));
+        }
+        {
+            let mut users = self.users.write().unwrap();
+            match users.get_mut(access_key) {
+                Some(u) => u.buckets = buckets,
+                None => return Err(S3Error::InvalidArgument("no such user".into())),
+            }
+        }
+        self.persist().await
+    }
+
     /// Write the current user set to disk (root is never persisted).
     ///
     /// # Returns
@@ -534,6 +639,25 @@ pub fn action_for(method: &Method, path: &str) -> Action {
     }
 }
 
+/// Extract the bucket a request path targets, for bucket-scoped authorization.
+///
+/// S3 addresses objects path-style as `/{bucket}/{key…}`, so the bucket is the
+/// first path segment. Admin and health endpoints are not bucket-scoped.
+///
+/// # Parameters
+/// - `path`: the request path.
+///
+/// # Returns
+/// `Some(bucket)` for bucket/object requests, `None` for `/`, admin and health
+/// endpoints (requests that target no single bucket).
+pub fn bucket_for(path: &str) -> Option<&str> {
+    if path.starts_with("/kerplace/") || path.starts_with("/minio/") {
+        return None;
+    }
+    let seg = path.trim_start_matches('/').split('/').next()?;
+    (!seg.is_empty()).then_some(seg)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -550,6 +674,121 @@ mod tests {
         assert!(!Policy::ReadOnly.allows(Action::Write));
         assert!(Policy::WriteOnly.allows(Action::Write));
         assert!(!Policy::WriteOnly.allows(Action::Read));
+    }
+
+    /// The bucket is the first path segment; admin endpoints target none.
+    #[test]
+    fn bucket_for_extracts_first_segment() {
+        assert_eq!(bucket_for("/reports/q1.pdf"), Some("reports"));
+        assert_eq!(bucket_for("/reports/dir/deep/key.txt"), Some("reports"));
+        assert_eq!(bucket_for("/reports/"), Some("reports"));
+        assert_eq!(bucket_for("/reports"), Some("reports"));
+        assert_eq!(bucket_for("/"), None);
+        assert_eq!(bucket_for(""), None);
+        assert_eq!(bucket_for("/kerplace/admin/v3/info"), None);
+        assert_eq!(bucket_for("/minio/admin/v3/info"), None);
+    }
+
+    /// A pipe-separated list parses to trimmed names; nothing usable ⇒ unscoped.
+    #[test]
+    fn bucket_list_parses_or_means_unscoped() {
+        assert_eq!(parse_bucket_list("x"), Some(vec!["x".to_string()]));
+        assert_eq!(
+            parse_bucket_list(" x | y "),
+            Some(vec!["x".to_string(), "y".to_string()])
+        );
+        assert_eq!(parse_bucket_list(""), None);
+        assert_eq!(parse_bucket_list("  |  "), None);
+    }
+
+    /// An unscoped identity reaches every bucket; a scoped one only its own.
+    #[test]
+    fn allows_bucket_enforces_the_scope() {
+        let unscoped = Identity {
+            access_key: "root".into(),
+            secret_key: "s".into(),
+            policy: "readwrite".into(),
+            enabled: true,
+            buckets: None,
+        };
+        assert!(unscoped.allows_bucket(Some("anything")));
+        assert!(unscoped.allows_bucket(None));
+
+        let scoped = Identity {
+            access_key: "alice".into(),
+            secret_key: "s".into(),
+            policy: "readwrite".into(),
+            enabled: true,
+            buckets: Some(vec!["x".into(), "z".into()]),
+        };
+        assert!(scoped.allows_bucket(Some("x")));
+        assert!(scoped.allows_bucket(Some("z")));
+        assert!(!scoped.allows_bucket(Some("y")));
+        // ListBuckets targets no bucket: allowed, but the handler filters rows.
+        assert!(scoped.allows_bucket(None));
+    }
+
+    /// The A→X, B→Y, C→X+Y shape resolves end to end from the `KP_USERS` seed,
+    /// and a credential with no 4th field stays unscoped (back-compat).
+    #[tokio::test]
+    async fn env_seed_scopes_users_per_bucket() {
+        let dir = std::env::temp_dir().join(format!("kp-iam-seed-{}", std::process::id()));
+        let store = IamStore::load(
+            dir,
+            "root",
+            "rootsecret",
+            Some(
+                "alice:a1:readwrite:x,bob:b1:readwrite:y,carol:c1:readwrite:x|y,dave:d1:readonly"
+                    .into(),
+            ),
+        )
+        .await;
+
+        let alice = store.resolve("alice").unwrap();
+        assert!(alice.allows_bucket(Some("x")));
+        assert!(!alice.allows_bucket(Some("y")));
+
+        let bob = store.resolve("bob").unwrap();
+        assert!(!bob.allows_bucket(Some("x")));
+        assert!(bob.allows_bucket(Some("y")));
+
+        let carol = store.resolve("carol").unwrap();
+        assert!(carol.allows_bucket(Some("x")));
+        assert!(carol.allows_bucket(Some("y")));
+        assert!(!carol.allows_bucket(Some("z")));
+
+        let dave = store.resolve("dave").unwrap();
+        assert!(dave.buckets.is_none(), "no 4th field ⇒ unscoped");
+        assert!(dave.allows_bucket(Some("anything")));
+    }
+
+    /// Rotating a secret through `add_user` must not silently widen a scoped
+    /// credential back to every bucket (a privilege escalation).
+    #[tokio::test]
+    async fn add_user_preserves_an_existing_bucket_scope() {
+        let store = IamStore::root_only("root", "rootsecret");
+        store.add_user("alice", "s1", "readwrite").await.unwrap();
+        store.set_buckets("alice", Some(vec!["x".into()])).await.unwrap();
+
+        // Re-issue the credential with a new secret (i.e. a rotation).
+        store.add_user("alice", "s2", "readwrite").await.unwrap();
+
+        let alice = store.resolve("alice").unwrap();
+        assert_eq!(alice.secret_key, "s2", "the secret should rotate");
+        assert_eq!(alice.buckets, Some(vec!["x".to_string()]));
+        assert!(!alice.allows_bucket(Some("y")), "rotation must not widen the scope");
+
+        // Clearing the scope is explicit, and does widen it.
+        store.set_buckets("alice", None).await.unwrap();
+        assert!(store.resolve("alice").unwrap().allows_bucket(Some("y")));
+    }
+
+    /// Root is never bucket-scoped.
+    #[tokio::test]
+    async fn root_cannot_be_scoped() {
+        let store = IamStore::root_only("root", "rootsecret");
+        assert!(store.set_buckets("root", Some(vec!["x".into()])).await.is_err());
+        assert!(store.resolve("root").unwrap().allows_bucket(Some("anything")));
     }
 
     /// Policy names round-trip through `from_name`/`name` for the canon set.

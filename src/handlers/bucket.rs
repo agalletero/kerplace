@@ -13,6 +13,7 @@ use axum::body::Body;
 use axum::extract::{Path, RawQuery, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
+use axum::Extension;
 use futures::TryStreamExt;
 use tokio_util::io::StreamReader;
 
@@ -36,15 +37,26 @@ use crate::state::AppState;
 ///
 /// # Returns
 /// A `200 OK` `ListAllMyBucketsResult` document, or an S3 error response.
-pub async fn list_buckets(State(state): State<AppState>) -> Response {
+pub async fn list_buckets(
+    State(state): State<AppState>,
+    identity: Option<Extension<crate::iam::Identity>>,
+) -> Response {
     match state.store.list_buckets().await {
         Ok(buckets) => {
+            // A bucket-scoped credential must not even learn that the other
+            // buckets exist, so the listing is filtered to what it may reach.
+            // Unscoped credentials — and deployments with auth disabled, where
+            // no identity is attached — keep seeing everything.
+            let scope = identity.as_ref().map(|Extension(i)| i);
             let result = ListAllMyBucketsResult {
                 xmlns: S3_NS,
                 owner: Owner { id: "kerplace".to_string(), display_name: "kerplace".to_string() },
                 buckets: Buckets {
                     bucket: buckets
                         .into_iter()
+                        .filter(|b| {
+                            scope.map(|i| i.allows_bucket(Some(&b.name))).unwrap_or(true)
+                        })
                         .map(|b| Bucket {
                             name: b.name,
                             creation_date: iso8601(b.creation_date),

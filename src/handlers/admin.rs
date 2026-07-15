@@ -418,9 +418,49 @@ pub async fn set_user_status(
     }
 }
 
+/// Handle `PUT /kerplace/admin/v3/set-user-buckets?accessKey=X&buckets=a|b` —
+/// scope a user to a bucket allow-list.
+///
+/// This is the *where* half of authorization (the canned policy remains the
+/// *what*); both are enforced together. `buckets` is pipe-separated. Passing it
+/// **empty** (`&buckets=`) clears the scope, letting the user reach every bucket
+/// again — a privilege-widening operation, so it must be spelled out rather than
+/// implied by omitting the parameter.
+///
+/// # Parameters
+/// - `state`: shared application state.
+/// - `query`: query parameters (`accessKey`, `buckets`).
+///
+/// # Returns
+/// `200 OK` on success, or an error response.
+pub async fn set_user_buckets(
+    State(state): State<AppState>,
+    Query(query): Query<HashMap<String, String>>,
+) -> Response {
+    let access_key = match query.get("accessKey") {
+        Some(k) => k.clone(),
+        None => return S3Error::InvalidArgument("missing accessKey".into()).into_response(),
+    };
+    let raw = match query.get("buckets") {
+        Some(b) => b.clone(),
+        None => {
+            return S3Error::InvalidArgument(
+                "missing buckets (pass an empty value to clear the scope)".into(),
+            )
+            .into_response()
+        }
+    };
+    match state.iam.set_buckets(&access_key, crate::iam::parse_bucket_list(&raw)).await {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
 /// Handle `GET /minio/admin/v3/user-info?accessKey=X` — return one user's info.
 ///
 /// Responds with plain `UserInfo` JSON (`mc admin user info` reads it directly).
+/// The KerPlace-specific `buckets` field reports the credential's bucket scope
+/// (`null` = every bucket); madmin clients ignore the extra field.
 ///
 /// # Parameters
 /// - `state`: shared application state.
@@ -440,6 +480,7 @@ pub async fn user_info(
         Some(user) if access_key != state.config.root_user => Json(json!({
             "status": account_status(user.enabled),
             "policyName": Policy::from_name(&user.policy).name(),
+            "buckets": user.buckets,
         }))
         .into_response(),
         _ => S3Error::NoSuchKey.into_response(),

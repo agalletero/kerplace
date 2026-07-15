@@ -86,6 +86,7 @@ fn mount_admin(router: Router<AppState>, compat: bool) -> Router<AppState> {
             .route("/list-users", get(admin::list_users))
             .route("/remove-user", delete(admin::remove_user))
             .route("/set-user-status", put(admin::set_user_status))
+            .route("/set-user-buckets", put(admin::set_user_buckets))
             .route("/user-info", get(admin::user_info))
             .route("/idp/builtin/policy/attach", post(admin::attach_policy))
             .route("/idp/builtin/policy/detach", post(admin::detach_policy))
