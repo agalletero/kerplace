@@ -1,14 +1,14 @@
 # ~/.config/systemd/user/kerplace-usb-watch.service
-# Agente de inserción del USB de custodia: al INSERTAR, ejecuta 'kpc enable'
-# (levanta túnel + des-sella con prompt gráfico + monta buckets); al RETIRAR,
-# para el/los túnel(es). El sellado+desmontaje instantáneos los hace el servicio
-# de sistema (udev + kerplace-kms-presence). Edge-triggered (sin bucle del .path).
-# Corre en la sesión de usuario -> hereda DISPLAY/DBUS -> kdialog funciona.
+# Custody USB insertion agent: on INSERT it runs 'kpc enable' (brings up the
+# tunnel, unseals with a graphical prompt, mounts the buckets); on REMOVAL it
+# stops the tunnel(s). The instantaneous seal+unmount is done by the system
+# service (udev + kerplace-kms-presence). Edge-triggered (no .path unit loop).
+# It runs in the user session -> inherits DISPLAY/DBUS -> kdialog works.
 #
-# Instalar:  systemctl --user enable --now kerplace-usb-watch.service
-# (y linger:  sudo loginctl enable-linger $USER  — para que arranque tras boot)
+# Install:  systemctl --user enable --now kerplace-usb-watch.service
+# (and linger:  sudo loginctl enable-linger $USER  — so it starts after a boot)
 [Unit]
-Description=KerPlace: agente de inserción del USB (enable al insertar / stop túnel al retirar)
+Description=KerPlace: custody USB agent (enable on insert / stop tunnel on removal)
 
 [Service]
 ExecStart=/usr/local/bin/kpc watch

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# kerplace-kms-presence — backstop de la regla udev. Sondea la presencia del USB de
-# custodia (por UUID de filesystem) y, si desaparece estando el KMS des-sellado,
-# dispara la acción de sellado. Garantiza el sellado aunque se pierda el evento udev
-# (suspend/resume, replug rápido). udev da el sellado INSTANTÁNEO; esto es la red.
+# kerplace-kms-presence — backstop for the udev rule. Polls for the custody USB
+# (by filesystem UUID) and, if it disappears while the KMS is unsealed, triggers
+# the sealing action. This guarantees sealing even when the udev event is lost
+# (suspend/resume, a fast replug). udev gives INSTANT sealing; this is the net.
 #
-# 1 USB <-> 1 KMS: va keyado al UUID de UN USB. Para varias instancias KMS, una
-# unidad de estas por instancia, cada una con su UUID.
+# 1 USB <-> 1 KMS: this is keyed to ONE USB's UUID. For several KMS instances,
+# run one of these units per instance, each with its own UUID.
 [ -r /etc/kerplace/custody.env ] && . /etc/kerplace/custody.env
-UUID="${KP_CUSTODY_USB_UUID:?define KP_CUSTODY_USB_UUID en /etc/kerplace/custody.env}"
+UUID="${KP_CUSTODY_USB_UUID:?set KP_CUSTODY_USB_UUID in /etc/kerplace/custody.env}"
 ADDR="${KP_KMS_ADDR:-https://127.0.0.1:8200}"
 CACERT="${KP_KMS_CACERT:-/etc/openbao/tls/ca.crt}"
 POLL="${KP_CUSTODY_POLL:-2}"
@@ -18,7 +18,7 @@ sealed(){ VAULT_ADDR="$ADDR" VAULT_CACERT="$CACERT" "$BAO" status -format=json 2
 
 while :; do
   if [ ! -e "/dev/disk/by-uuid/$UUID" ] && [ "$(sealed)" = "False" ]; then
-    logger -t kerplace-kms-presence "USB $UUID ausente -> seal"
+    logger -t kerplace-kms-presence "USB $UUID absent -> seal"
     "$SC" start kerplace-kms-seal.service
   fi
   sleep "$POLL"

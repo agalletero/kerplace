@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Instala el sistema de presencia USB de custodia (sella el KMS al retirar el USB).
-#   Uso:  sudo ./install.sh <USB_FS_UUID>
-#   Obtén el UUID:  lsblk -o NAME,LABEL,UUID   (usa el del FILESYSTEM, no PARTUUID)
+# Installs the custody USB presence system (seals the KMS when the USB is pulled).
+#   Usage:  sudo ./install.sh <USB_FS_UUID>
+#   Get the UUID:  lsblk -o NAME,LABEL,UUID   (use the FILESYSTEM's, not PARTUUID)
 set -euo pipefail
-UUID="${1:?uso: sudo ./install.sh <USB_FS_UUID>   (lsblk -o NAME,LABEL,UUID)}"
+UUID="${1:?usage: sudo ./install.sh <USB_FS_UUID>   (lsblk -o NAME,LABEL,UUID)}"
 D="$(cd "$(dirname "$0")" && pwd)"
-[ "$(id -u)" -eq 0 ] || { echo "ejecútalo como root (sudo)"; exit 1; }
+[ "$(id -u)" -eq 0 ] || { echo "run it as root (sudo)"; exit 1; }
 
 install -d /etc/kerplace
 if [ ! -f /etc/kerplace/custody.env ]; then
@@ -28,6 +28,6 @@ udevadm control --reload-rules
 systemctl daemon-reload
 systemctl enable --now kerplace-kms-presence.service
 
-echo "[OK] presencia USB instalada. USB UUID=$UUID"
-echo "     Recomendado en los HOSTS KerPlace: KP_KMS_CACHE_TTL=0 (bloqueo inmediato al sellar)."
-echo "     Prueba: retira el USB -> el KMS debe sellarse y los s3fs desmontarse."
+echo "[OK] USB presence installed. USB UUID=$UUID"
+echo "     Recommended on the KerPlace HOSTS: KP_KMS_CACHE_TTL=0 (immediate lockout on seal)."
+echo "     Test it: pull the USB -> the KMS must seal and the s3fs mounts must go."

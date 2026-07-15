@@ -1,6 +1,6 @@
 [Unit]
 Description=KerPlace custody: lazy-umount s3fs + seal the KMS (custody USB removed)
-# Oneshot disparado por la regla udev y por kerplace-kms-presence.
+# Oneshot, triggered by the udev rule and by kerplace-kms-presence.
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/kerplace-kms-seal

@@ -1,25 +1,27 @@
 [Unit]
-Description=Túnel SSH del modo custodia KerPlace (custodia -R 8200 + datos -L 9000)
+Description=KerPlace custody-mode SSH tunnel (custody -R 8200 + data -L 9000)
 Documentation=file:docs/OFFHOST_KMS_CUSTODY.md
 Wants=network-online.target
 After=network-online.target
 
 [Service]
-# Una sola conexión SSH lleva las dos direcciones del modo custodia:
-#   -R 127.0.0.1:8200 : CUSTODIA — el host remoto alcanza el Vault local (KMS).
-#   -L 127.0.0.1:9000 : DATOS    — este portátil alcanza el S3 de KerPlace (T1),
-#                                  cifrado en tránsito por el canal SSH (ML-KEM).
-# Sin túnel no hay claves, ni datos, ni endpoint: fail-closed total.
+# A single SSH connection carries both directions of custody mode:
+#   -R 127.0.0.1:8200 : CUSTODY — the remote host reaches the local Vault (KMS).
+#   -L 127.0.0.1:9000 : DATA    — this laptop reaches KerPlace's S3, encrypted in
+#                                 transit by the SSH channel (ML-KEM).
+# No tunnel means no keys, no data and no endpoint: fail-closed throughout.
 #
-# Endurecido (T4): KEX post-cuántico FIJADO por política (si el servidor no ofrece
-# ML-KEM, la conexión falla, no degrada) + host key pinning contra un known_hosts
-# dedicado (sin TOFU). ExitOnForwardFailure=yes hace que un forward que no prende
-# tumbe la conexión (fail-closed). %h = home del usuario.
+# Hardened: the post-quantum KEX is PINNED by policy (if the server does not offer
+# ML-KEM the connection fails rather than downgrading) and the host key is pinned
+# against a dedicated known_hosts (no TOFU). ExitOnForwardFailure=yes makes a
+# forward that cannot bind tear the connection down (fail-closed). %h = the
+# user's home.
 #
-# AJUSTA: YOUR_USER@YOUR_HOST y las rutas de clave / known_hosts a tu despliegue.
-# La clave del servidor debe estar restringida en authorized_keys:
-#   restrict,port-forwarding,permitlisten="127.0.0.1:8200",permitopen="127.0.0.1:9000" ssh-ed25519 AAAA... custodia
-# Nota (fase 2): la clave vendrá de ssh-agent cargada desde el USB, no de disco.
+# ADJUST: YOUR_USER@YOUR_HOST and the key / known_hosts paths for your deployment.
+# The server-side key must be restricted in authorized_keys:
+#   restrict,port-forwarding,permitlisten="127.0.0.1:8200",permitopen="127.0.0.1:9000" ssh-ed25519 AAAA... custody
+# Note: in a later phase the key will come from an ssh-agent loaded off the USB,
+# not from disk.
 ExecStart=/usr/bin/ssh -N -T \
   -R 127.0.0.1:8200:127.0.0.1:8200 \
   -L 127.0.0.1:9000:127.0.0.1:9000 \

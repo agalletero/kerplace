@@ -1,12 +1,12 @@
 # ~/.config/systemd/user/kerplace-<HOST>-tunnel.service
-# Túnel de custodia (portátil -> host KerPlace): una sola conexión SSH lleva
-#   -R 8200  custodia (el host alcanza tu KMS local)
-#   -L 9000  datos    (tú alcanzas el S3 del host, cifrado en tránsito por SSH)
-# KEX post-cuántico fijado por política. NO se auto-arranca en boot: su ciclo de
-# vida lo gestiona la presencia del USB (kpc enable lo levanta, kpc watch lo para).
-# Sustituye <HOST>, <PORT>, <USER>, y el KEX según el sshd del host:
+# Custody tunnel (laptop -> KerPlace host): a single SSH connection carries
+#   -R 8200  custody (the host reaches your local KMS)
+#   -L 9000  data    (you reach the host's S3, encrypted in transit by SSH)
+# The post-quantum KEX is pinned by policy. It does NOT auto-start at boot: its
+# lifecycle follows the USB's presence (kpc enable starts it, kpc watch stops it).
+# Replace <HOST>, <PORT>, <USER>, and the KEX to match the host's sshd:
 #   ML-KEM (OpenSSH >= 9.9):  mlkem768x25519-sha256
-#   fallback PQC (>= 8.5):    sntrup761x25519-sha512
+#   PQC fallback (>= 8.5):    sntrup761x25519-sha512
 [Unit]
 Description=KerPlace custody tunnel (laptop -> <HOST>)
 Wants=network-online.target

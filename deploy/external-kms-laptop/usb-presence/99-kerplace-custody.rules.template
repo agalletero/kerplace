@@ -1,11 +1,11 @@
 # /etc/udev/rules.d/99-kerplace-custody.rules
-# KerPlace custody — sella el KMS al RETIRAR el USB de custodia. 1 USB <-> 1 KMS.
+# KerPlace custody — seal the KMS when the custody USB is REMOVED. 1 USB <-> 1 KMS.
 #
-# @USB_FS_UUID@ se sustituye (por install.sh) por el UUID del FILESYSTEM del USB.
-#   Obtenlo con:  lsblk -o NAME,LABEL,UUID   ó   sudo blkid
-#   (usa el UUID del filesystem, p.ej. "3431-7DD1", NO el PARTUUID)
+# @USB_FS_UUID@ is substituted (by install.sh) with the USB's FILESYSTEM UUID.
+#   Get it with:  lsblk -o NAME,LABEL,UUID   or   sudo blkid
+#   (use the filesystem UUID, e.g. "3431-7DD1", NOT the PARTUUID)
 #
-# ID_FS_UUID sigue disponible en el evento 'remove' porque udev conserva las
-# propiedades almacenadas del dispositivo. --no-block evita que systemctl bloquee
-# a udev. El sellado real (desmontar + sellar) lo hace kerplace-kms-seal.service.
+# ID_FS_UUID is still available on the 'remove' event because udev keeps the
+# device's stored properties. --no-block keeps systemctl from blocking udev. The
+# sealing itself (unmount + seal) is done by kerplace-kms-seal.service.
 ACTION=="remove", SUBSYSTEM=="block", ENV{ID_FS_UUID}=="@USB_FS_UUID@", RUN+="/usr/bin/systemctl --no-block start kerplace-kms-seal.service"
