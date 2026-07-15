@@ -1,12 +1,13 @@
-//! kpc — KerPlaceClient. CLI de administración de KerPlace en modo custodia.
+//! kpc — KerPlaceClient. Administration CLI for KerPlace in custody mode.
 //!
-//! Un solo comando, autoexplicado, para operar el KMS off-host y los buckets:
-//! `status`, `unseal`, `seal`, `provision-usb`, `enable`/`disable`, `mount`/`umount`,
-//! `backup`. Pensado para el día a día y, sobre todo, para DR: cualquier admin con
-//! `kpc` en el path y `kpc --help` sabe qué hacer, sin buscar scripts sueltos.
+//! One self-explaining command to operate the off-host KMS and the buckets it
+//! protects: `status`, `unseal`, `seal`, `provision-usb`, `enable`/`disable`,
+//! `mount`/`umount`, `backup`. Built for daily use and, above all, for disaster
+//! recovery: any admin with `kpc` on the path and `kpc --help` knows what to do,
+//! without hunting for loose scripts.
 //!
-//! Orquesta herramientas de sistema estándar (curl, gpg, systemctl, findmnt, s3fs),
-//! así que es un binario pequeño y autocontenido. Config en TOML.
+//! It orchestrates standard system tools (curl, gpg, systemctl, findmnt, s3fs),
+//! so the binary stays small and self-contained. Configuration is TOML.
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
@@ -21,18 +22,18 @@ use std::process::{Command, Stdio};
 #[command(
     name = "kpc",
     version,
-    about = "KerPlaceClient — administración de custodia (KMS off-host + buckets cifrados).",
-    long_about = "kpc controla el KMS de custodia (OpenBao) y los buckets de KerPlace.\n\
-    En custodia, los datos solo se leen si el KMS está des-sellado, y el KMS solo se\n\
-    des-sella con el USB de custodia + passphrase. kpc es el único comando que necesitas:\n\
-      kpc status         ¿sellado? ¿USB? ¿túneles? ¿montajes?\n\
-      kpc unseal         des-sella con el USB (pide passphrase)\n\
-      kpc seal           sella YA (desmonta + reinicia el KMS)   [sudo]\n\
-      kpc mount <bucket> monta un bucket por FUSE\n\
-    Config: /etc/kerplace/kpc.toml (o ~/.config/kerplace/kpc.toml)."
+    about = "KerPlaceClient — custody administration (off-host KMS + encrypted buckets).",
+    long_about = "kpc drives the custody KMS (OpenBao) and KerPlace's buckets.\n\
+    In custody mode the data is readable only while the KMS is unsealed, and the KMS\n\
+    unseals only with the custody USB + passphrase. kpc is the only command you need:\n\
+      kpc status         sealed? USB? tunnels? mounts?\n\
+      kpc unseal         unseal with the USB (prompts for the passphrase)\n\
+      kpc seal           seal NOW (unmount + restart the KMS)      [sudo]\n\
+      kpc mount <bucket> mount a bucket over FUSE\n\
+    Config: /etc/kerplace/kpc.toml (or ~/.config/kerplace/kpc.toml)."
 )]
 struct Cli {
-    /// Ruta al fichero de config TOML (default: /etc/kerplace/kpc.toml o ~/.config/kerplace/kpc.toml).
+    /// Path to the TOML config (default: /etc/kerplace/kpc.toml or ~/.config/kerplace/kpc.toml).
     #[arg(long, global = true)]
     config: Option<PathBuf>,
     #[command(subcommand)]
@@ -41,37 +42,37 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Estado: KMS (sellado?), USB de custodia presente?, túneles y montajes.
+    /// Status: is the KMS sealed? is the custody USB present? tunnels and mounts.
     Status,
-    /// Des-sella el KMS con el material del USB (pide passphrase). No necesita root.
+    /// Unseal the KMS with the USB material (prompts for the passphrase). No root needed.
     Unseal,
-    /// Sella el KMS AHORA: desmonta los buckets y reinicia el KMS. Necesita root (sudo).
+    /// Seal the KMS NOW: unmount the buckets and restart the KMS. Needs root (sudo).
     Seal,
-    /// Monta un bucket por FUSE (s3fs) según la config.
+    /// Mount a bucket over FUSE (s3fs) as declared in the config.
     Mount {
-        /// Nombre del bucket (tal como está en la config).
+        /// Bucket name (as it appears in the config).
         bucket: String,
     },
-    /// Desmonta un bucket.
+    /// Unmount a bucket.
     Umount {
-        /// Nombre del bucket.
+        /// Bucket name.
         bucket: String,
     },
-    /// Migra el material de unseal del disco al USB cifrado. [aún vía script]
+    /// Migrate the unseal material from disk onto the encrypted USB. [still script-backed]
     ProvisionUsb { path: Option<String> },
-    /// Levanta todo: túnel(es) + unseal (si sellado) + montar buckets. Un solo comando.
+    /// Bring everything up: tunnel(s) + unseal (if sealed) + mount buckets. One command.
     Enable {
-        /// Instancia concreta (por defecto: todas).
+        /// A specific instance (default: all of them).
         instance: Option<String>,
     },
-    /// Baja todo: desmontar buckets + parar túnel(es) + sellar el KMS.
+    /// Take everything down: unmount buckets + stop tunnel(s) + seal the KMS.
     Disable {
-        /// Instancia concreta (por defecto: todas).
+        /// A specific instance (default: all of them).
         instance: Option<String>,
     },
-    /// Backup de DR del KMS (dos artefactos). [aún vía script]
+    /// Disaster-recovery backup of the KMS (two artifacts). [still script-backed]
     Backup { dir: Option<String> },
-    /// (agente) Vigila la inserción del USB y ejecuta 'enable' al insertarlo. Para systemd --user.
+    /// (agent) Watch for the USB being inserted and run 'enable'. For systemd --user.
     Watch,
 }
 
@@ -137,9 +138,9 @@ fn load_config(explicit: Option<&Path>) -> Result<Config> {
         }
     };
     let s = std::fs::read_to_string(&path).with_context(|| {
-        format!("no puedo leer la config {path:?} (crea /etc/kerplace/kpc.toml o ~/.config/kerplace/kpc.toml)")
+        format!("cannot read the config {path:?} (create /etc/kerplace/kpc.toml or ~/.config/kerplace/kpc.toml)")
     })?;
-    toml::from_str(&s).context("config TOML inválida")
+    toml::from_str(&s).context("invalid TOML config")
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -147,7 +148,7 @@ fn sh(cmd: &str, args: &[&str]) -> Result<std::process::Output> {
     Command::new(cmd)
         .args(args)
         .output()
-        .with_context(|| format!("ejecutando '{cmd}'"))
+        .with_context(|| format!("running '{cmd}'"))
 }
 fn sh_trim(cmd: &str, args: &[&str]) -> String {
     Command::new(cmd)
@@ -157,7 +158,7 @@ fn sh_trim(cmd: &str, args: &[&str]) -> String {
         .unwrap_or_default()
 }
 
-/// ¿El KMS está sellado? (curl a /v1/sys/seal-status con la CA privada.)
+/// Is the KMS sealed? (curl to /v1/sys/seal-status with the private CA.)
 fn kms_sealed(k: &Kms) -> Option<bool> {
     let url = format!("{}/v1/sys/seal-status", k.addr);
     let out = sh("curl", &["-s", "--cacert", &k.cacert, "--max-time", "6", &url]).ok()?;
@@ -177,8 +178,8 @@ fn usb_mount(u: &Usb) -> Option<String> {
     t.lines().next().map(|s| s.to_string()).filter(|s| !s.is_empty())
 }
 
-/// Espera hasta `secs` a que el USB esté MONTADO (al insertarlo, el auto-montaje del
-/// escritorio tarda un instante tras aparecer el device).
+/// Wait up to `secs` for the USB to be MOUNTED (on insertion the desktop's
+/// auto-mount takes a moment after the device node appears).
 fn usb_mount_wait(u: &Usb, secs: u64) -> Option<String> {
     for _ in 0..secs {
         if let Some(m) = usb_mount(u) {
@@ -207,17 +208,17 @@ fn is_mounted(mounts: &str, mp: &str) -> bool {
     })
 }
 
-// ── comandos ─────────────────────────────────────────────────────────────────
+// ── commands ─────────────────────────────────────────────────────────────────
 fn cmd_status(c: &Config) -> Result<()> {
     let sealed = match kms_sealed(&c.kms) {
-        Some(true) => "SELLADO",
-        Some(false) => "des-sellado",
-        None => "sin respuesta",
+        Some(true) => "SEALED",
+        Some(false) => "unsealed",
+        None => "no answer",
     };
     println!("KMS   {:<14} {}", sealed, c.kms.addr);
     println!(
         "USB   {:<14} LABEL={} UUID={}",
-        if usb_present(&c.usb) { "presente" } else { "AUSENTE" },
+        if usb_present(&c.usb) { "present" } else { "ABSENT" },
         c.usb.label,
         c.usb.uuid
     );
@@ -229,12 +230,12 @@ fn cmd_status(c: &Config) -> Result<()> {
             let s = sh_trim("systemctl", &["--user", "is-active", &inst.tunnel_unit]);
             if s.is_empty() { "?".into() } else { s }
         };
-        println!("inst  {:<14} túnel:{}", inst.name, tun);
+        println!("inst  {:<14} tunnel:{}", inst.name, tun);
         for b in &inst.buckets {
             println!(
                 "        bucket {:<12} {:<9} {}",
                 b.name,
-                if is_mounted(&mounts, &b.mountpoint) { "montado" } else { "—" },
+                if is_mounted(&mounts, &b.mountpoint) { "mounted" } else { "—" },
                 b.mountpoint
             );
         }
@@ -243,32 +244,32 @@ fn cmd_status(c: &Config) -> Result<()> {
 }
 
 fn cmd_unseal(c: &Config) -> Result<()> {
-    let mount = usb_mount_wait(&c.usb, 15).context("USB de custodia no montado (LABEL no encontrado)")?;
+    let mount = usb_mount_wait(&c.usb, 15).context("custody USB not mounted (LABEL not found)")?;
     let file = format!("{}/{}", mount, c.usb.unseal_file);
     if !Path::new(&file).exists() {
-        bail!("no encuentro el material de unseal en el USB: {file}");
+        bail!("cannot find the unseal material on the USB: {file}");
     }
-    let pass = get_passphrase("Passphrase del USB de custodia:")?;
+    let pass = get_passphrase("Custody USB passphrase:")?;
 
-    // gpg -d en loopback, passphrase por stdin. La salida (JSON) va a memoria.
+    // gpg -d in loopback mode, passphrase over stdin. The output (JSON) stays in memory.
     let mut gpg = Command::new("gpg")
         .args(["--batch", "--pinentry-mode", "loopback", "--passphrase-fd", "0", "-d", &file])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
-        .context("no pude lanzar gpg")?;
+        .context("could not launch gpg")?;
     gpg.stdin.take().unwrap().write_all(pass.as_bytes())?;
     let out = gpg.wait_with_output()?;
     if !out.status.success() || out.stdout.is_empty() {
-        bail!("descifrado vacío — passphrase incorrecta o USB inválido");
+        bail!("empty decryption — wrong passphrase or invalid USB");
     }
-    let v: serde_json::Value = serde_json::from_slice(&out.stdout).context("JSON de unseal inválido")?;
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).context("invalid unseal JSON")?;
     let key = v["unseal_keys_b64"][0]
         .as_str()
-        .context("el material no contiene unseal_keys_b64")?;
+        .context("the material carries no unseal_keys_b64")?;
 
-    // PUT /v1/sys/unseal con el cuerpo por stdin (evita exponer la clave en 'ps').
+    // PUT /v1/sys/unseal with the body over stdin (keeps the key out of 'ps').
     let body = serde_json::json!({ "key": key }).to_string();
     let url = format!("{}/v1/sys/unseal", c.kms.addr);
     let mut curl = Command::new("curl")
@@ -277,29 +278,29 @@ fn cmd_unseal(c: &Config) -> Result<()> {
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
-        .context("no pude lanzar curl")?;
+        .context("could not launch curl")?;
     curl.stdin.take().unwrap().write_all(body.as_bytes())?;
     let resp = curl.wait_with_output()?;
     let rv: serde_json::Value = serde_json::from_slice(&resp.stdout).unwrap_or_default();
     match rv.get("sealed").and_then(|x| x.as_bool()) {
         Some(false) => {
-            println!("KMS des-sellado ✓");
+            println!("KMS unsealed ✓");
             Ok(())
         }
-        Some(true) => bail!("el KMS sigue sellado (¿umbral de claves > 1?)"),
+        Some(true) => bail!("the KMS is still sealed (key threshold > 1?)"),
         None => bail!(
-            "respuesta inesperada del KMS: {}",
+            "unexpected response from the KMS: {}",
             String::from_utf8_lossy(&resp.stdout)
         ),
     }
 }
 
-/// Pide la passphrase. Desde un terminal usa rpassword; sin TTY (p.ej. lanzado por
-/// systemd al insertar el USB) usa systemd-ask-password (prompt gráfico en KDE/GNOME).
+/// Ask for the passphrase. From a terminal it uses rpassword; with no TTY (e.g.
+/// launched by systemd on USB insertion) it falls back to a graphical prompt.
 fn get_passphrase(prompt: &str) -> Result<String> {
-    // TERMINAL primero: rpassword lee de /dev/tty, así funciona por SSH en un host
-    // headless (sin escritorio). Solo si NO hay terminal controlante (p.ej. lanzado
-    // por systemd 'kpc watch' al insertar el USB en un escritorio) se recurre al GUI.
+    // TERMINAL first: rpassword reads /dev/tty, so this works over SSH on a
+    // headless host (no desktop). Only when there is NO controlling terminal
+    // (e.g. `kpc watch` started by systemd on insertion) do we fall back to a GUI.
     if let Ok(p) = rpassword::prompt_password(format!("{prompt} ")) {
         return Ok(p);
     }
@@ -314,10 +315,10 @@ fn get_passphrase(prompt: &str) -> Result<String> {
     try_gui("kdialog", &["--password", prompt])
         .or_else(|| try_gui("zenity", &["--password", "--title", prompt]))
         .or_else(|| try_gui("systemd-ask-password", &["--no-tty", "--timeout=90", prompt]))
-        .context("no pude solicitar la passphrase (sin TTY y sin prompt gráfico)")
+        .context("could not ask for the passphrase (no TTY and no graphical prompt)")
 }
 
-/// Desmonta un bucket: fusermount3 (usuario) y, si falla, umount -l vía sudo.
+/// Unmount a bucket: fusermount3 (as the user) and, failing that, umount -l via sudo.
 fn unmount_bucket(mp: &str) {
     if sh("fusermount3", &["-u", mp]).map(|s| s.status.success()).unwrap_or(false) {
         return;
@@ -325,16 +326,16 @@ fn unmount_bucket(mp: &str) {
     let _ = sh("sudo", &["umount", "-l", mp]);
 }
 
-/// Sella el KMS reiniciando su servicio (arranca sellado). Usa sudo (solo esto es root).
+/// Seal the KMS by restarting its service (it starts sealed). Uses sudo — the only root step.
 fn seal_kms(c: &Config) -> Result<()> {
     let st = sh("sudo", &["systemctl", "restart", &c.kms.service])?;
     if !st.status.success() {
-        bail!("no pude reiniciar '{}' (sudo): {}", c.kms.service, String::from_utf8_lossy(&st.stderr));
+        bail!("could not restart '{}' (sudo): {}", c.kms.service, String::from_utf8_lossy(&st.stderr));
     }
     Ok(())
 }
 
-/// Instancias seleccionadas (todas, o una por nombre).
+/// The selected instances (all of them, or one by name).
 fn instances<'a>(c: &'a Config, name: Option<&str>) -> Vec<&'a Instance> {
     match name {
         Some(n) => c.instances.iter().filter(|i| i.name == n).collect(),
@@ -349,29 +350,29 @@ fn cmd_seal(c: &Config) -> Result<()> {
         }
     }
     seal_kms(c)?;
-    println!("KMS sellado + buckets desmontados.");
+    println!("KMS sealed + buckets unmounted.");
     Ok(())
 }
 
-/// enable = túnel(es) arriba + unseal si está sellado + montar buckets. Corre como usuario.
+/// enable = tunnel(s) up + unseal if sealed + mount buckets. Runs as the user.
 fn cmd_enable(c: &Config, name: Option<&str>) -> Result<()> {
     for inst in instances(c, name) {
         if !inst.tunnel_unit.is_empty()
             && sh_trim("systemctl", &["--user", "is-active", &inst.tunnel_unit]) != "active"
         {
-            println!("levantando túnel {}", inst.tunnel_unit);
+            println!("bringing up tunnel {}", inst.tunnel_unit);
             let _ = sh("systemctl", &["--user", "start", &inst.tunnel_unit]);
         }
     }
     if kms_sealed(&c.kms) == Some(true) {
         cmd_unseal(c)?;
     } else {
-        println!("KMS ya des-sellado.");
+        println!("KMS already unsealed.");
     }
     for inst in instances(c, name) {
         for b in &inst.buckets {
             if let Err(e) = cmd_mount(c, &b.name) {
-                eprintln!("  aviso: no pude montar '{}': {e}", b.name);
+                eprintln!("  warning: could not mount '{}': {e}", b.name);
             }
         }
     }
@@ -379,7 +380,7 @@ fn cmd_enable(c: &Config, name: Option<&str>) -> Result<()> {
     cmd_status(c)
 }
 
-/// disable = desmontar buckets + parar túnel(es) + sellar el KMS.
+/// disable = unmount buckets + stop tunnel(s) + seal the KMS.
 fn cmd_disable(c: &Config, name: Option<&str>) -> Result<()> {
     for inst in instances(c, name) {
         for b in &inst.buckets {
@@ -392,13 +393,13 @@ fn cmd_disable(c: &Config, name: Option<&str>) -> Result<()> {
         }
     }
     seal_kms(c)?;
-    println!("Abajo: buckets desmontados, túnel parado, KMS sellado.");
+    println!("Down: buckets unmounted, tunnel stopped, KMS sealed.");
     Ok(())
 }
 
 fn write_passwd(inst: &Instance) -> Result<String> {
     let secret = std::fs::read_to_string(&inst.secret_file)
-        .with_context(|| format!("leyendo secret_file {}", inst.secret_file))?;
+        .with_context(|| format!("reading secret_file {}", inst.secret_file))?;
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
     let dir = format!("{home}/.config/kerplace");
     std::fs::create_dir_all(&dir).ok();
@@ -409,10 +410,10 @@ fn write_passwd(inst: &Instance) -> Result<String> {
 }
 
 fn cmd_mount(c: &Config, name: &str) -> Result<()> {
-    let (inst, b) = find_bucket(c, name).with_context(|| format!("bucket '{name}' no está en la config"))?;
+    let (inst, b) = find_bucket(c, name).with_context(|| format!("bucket '{name}' is not in the config"))?;
     let mounts = std::fs::read_to_string("/proc/mounts").unwrap_or_default();
     if is_mounted(&mounts, &b.mountpoint) {
-        println!("ya montado: {} @ {}", b.name, b.mountpoint);
+        println!("already mounted: {} @ {}", b.name, b.mountpoint);
         return Ok(());
     }
     let passwd = write_passwd(inst)?;
@@ -434,48 +435,49 @@ fn cmd_mount(c: &Config, name: &str) -> Result<()> {
     )?;
     if !st.status.success() {
         bail!(
-            "s3fs falló montando '{}': {}\n  pista: ¿alguna terminal/proceso con el cwd DENTRO de {}? sal (cd ~) y reintenta.",
+            "s3fs failed to mount '{}': {}\n  hint: is any terminal/process sitting with its cwd INSIDE {}? leave it (cd ~) and retry.",
             b.name,
             String::from_utf8_lossy(&st.stderr).trim(),
             b.mountpoint
         );
     }
-    println!("montado '{}' @ {}", b.name, b.mountpoint);
+    println!("mounted '{}' @ {}", b.name, b.mountpoint);
     Ok(())
 }
 
 fn cmd_umount(c: &Config, name: &str) -> Result<()> {
-    let (_i, b) = find_bucket(c, name).with_context(|| format!("bucket '{name}' no está en la config"))?;
+    let (_i, b) = find_bucket(c, name).with_context(|| format!("bucket '{name}' is not in the config"))?;
     let st = sh("fusermount3", &["-u", &b.mountpoint]);
     if st.map(|s| s.status.success()).unwrap_or(false) {
-        println!("desmontado {}", b.mountpoint);
+        println!("unmounted {}", b.mountpoint);
         return Ok(());
     }
     let _ = sh("umount", &["-l", &b.mountpoint]);
-    println!("desmontado (lazy) {}", b.mountpoint);
+    println!("unmounted (lazy) {}", b.mountpoint);
     Ok(())
 }
 
-/// Agente de inserción: detecta el FLANCO ausente→presente del USB (por UUID) y
-/// ejecuta enable. Edge-triggered (sin bucle como el .path). Corre como servicio
-/// systemd --user, así que hereda el entorno gráfico (kdialog funciona).
+/// Insertion agent: detects the absent→present EDGE of the USB (by UUID) and runs
+/// enable. Edge-triggered (no polling loop like the .path unit did). Runs as a
+/// systemd --user service, so it inherits the graphical session (kdialog works).
 fn cmd_watch(c: &Config) -> Result<()> {
     let uuid_path = format!("/dev/disk/by-uuid/{}", c.usb.uuid);
-    // Init a `false`: si el USB ya está puesto al arrancar (p.ej. tras boot con el KMS
-    // sellado), el primer ciclo lo trata como inserción y lanza enable.
+    // Init to `false`: if the USB is already in at startup (e.g. after a boot with
+    // the KMS sealed), the first cycle treats it as an insertion and runs enable.
     let mut present = false;
-    eprintln!("[kpc watch] vigilando {uuid_path}");
+    eprintln!("[kpc watch] watching {uuid_path}");
     loop {
         let now = Path::new(&uuid_path).exists();
         if now && !present {
-            eprintln!("[kpc watch] USB insertado -> enable");
+            eprintln!("[kpc watch] USB inserted -> enable");
             if let Err(e) = cmd_enable(c, None) {
-                eprintln!("[kpc watch] enable falló: {e}");
+                eprintln!("[kpc watch] enable failed: {e}");
             }
         } else if !now && present {
-            // Retirada: el sellado + desmontaje ya los hace el servicio de sistema;
-            // aquí paramos el/los túnel(es), que son units --user (contexto usuario).
-            eprintln!("[kpc watch] USB retirado -> parando túnel(es)");
+            // Removal: sealing and unmounting are already done by the system
+            // service; here we stop the tunnel(s), which are --user units and so
+            // live in the user's context.
+            eprintln!("[kpc watch] USB removed -> stopping tunnel(s)");
             for inst in &c.instances {
                 if !inst.tunnel_unit.is_empty() {
                     let _ = sh("systemctl", &["--user", "stop", &inst.tunnel_unit]);
@@ -488,8 +490,8 @@ fn cmd_watch(c: &Config) -> Result<()> {
 }
 
 fn stub(name: &str, hint: &str) -> Result<()> {
-    println!("[kpc] '{name}' aún no está portado a Rust nativo.");
-    println!("      De momento: {hint}");
+    println!("[kpc] '{name}' is not ported to native Rust yet.");
+    println!("      For now: {hint}");
     Ok(())
 }
 
@@ -504,8 +506,8 @@ fn main() -> Result<()> {
         Cmd::Umount { bucket } => cmd_umount(&cfg, &bucket),
         Cmd::Enable { instance } => cmd_enable(&cfg, instance.as_deref()),
         Cmd::Disable { instance } => cmd_disable(&cfg, instance.as_deref()),
-        Cmd::ProvisionUsb { .. } => stub("provision-usb", "usa ~/.config/kerplace/usb-reprovision.sh"),
-        Cmd::Backup { .. } => stub("backup", "usa ~/.config/kerplace/dr-backup.sh"),
+        Cmd::ProvisionUsb { .. } => stub("provision-usb", "use ~/.config/kerplace/usb-reprovision.sh"),
+        Cmd::Backup { .. } => stub("backup", "use ~/.config/kerplace/dr-backup.sh"),
         Cmd::Watch => cmd_watch(&cfg),
     }
 }

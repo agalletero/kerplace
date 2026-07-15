@@ -1,22 +1,22 @@
-# kpc — config del cliente de custodia. Cópialo a:
-#   /etc/kerplace/kpc.toml   (todo el sistema)   ó   ~/.config/kerplace/kpc.toml
-# Rutas ABSOLUTAS (no uses ~).
+# kpc — custody client configuration. Copy it to:
+#   /etc/kerplace/kpc.toml   (system-wide)   or   ~/.config/kerplace/kpc.toml
+# Use ABSOLUTE paths (no ~).
 
 [kms]
-addr    = "https://127.0.0.1:8200"          # endpoint del KMS (OpenBao), vía túnel
-cacert  = "/etc/openbao/tls/ca.crt"          # CA privada del KMS (legible por quien usa kpc)
-service = "openbao"                          # servicio systemd a reiniciar en 'kpc seal'
+addr    = "https://127.0.0.1:8200"           # KMS (OpenBao) endpoint, reached over the tunnel
+cacert  = "/etc/openbao/tls/ca.crt"          # the KMS's private CA (must be readable by whoever runs kpc)
+service = "openbao"                          # systemd service to restart on 'kpc seal'
 
 [usb]
-label       = "Ventoy"                       # LABEL del filesystem del USB de custodia
-uuid        = "3431-7DD1"                     # UUID del filesystem (presencia autoritativa)
-unseal_file = "kerplace-custody/unseal.json.gpg"   # ruta dentro del USB
+label       = "Ventoy"                       # filesystem LABEL of the custody USB
+uuid        = "3431-7DD1"                    # filesystem UUID (the authoritative presence signal)
+unseal_file = "kerplace-custody/unseal.json.gpg"   # path to the material inside the USB
 
-# Una o más instancias/hosts KerPlace (1 KMS puede servir a varias).
+# One or more KerPlace instances/hosts (a single KMS can serve several).
 [[instances]]
 name        = "gcp"
-tunnel_unit = "kerplace-gcp-tunnel.service"  # unit systemd --user del túnel
-s3_endpoint = "http://127.0.0.1:9000"        # endpoint S3 (loopback vía túnel)
+tunnel_unit = "kerplace-gcp-tunnel.service"  # systemd --user unit of the tunnel
+s3_endpoint = "http://127.0.0.1:9000"        # S3 endpoint (loopback, via the tunnel)
 access_key  = "kpadmin"
-secret_file = "/etc/kerplace/gcp-s3.secret"  # fichero con el secret (chmod 600)
+secret_file = "/etc/kerplace/gcp-s3.secret"  # file holding the secret (chmod 600)
 buckets     = [ { name = "obsidian", mountpoint = "/home/USER/kerplace/obsidian" } ]
