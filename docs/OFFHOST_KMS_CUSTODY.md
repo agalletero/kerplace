@@ -179,6 +179,15 @@ unwrap with.
 
 ## Day-to-day: a VPN-style control script
 
+> **The current tool is [`kpc`](KPC.md)** — a single binary on the system path
+> that owns this lifecycle natively (`kpc status` / `enable` / `disable` /
+> `unseal` / `seal` / `mount`), and can bind the USB's presence so that inserting
+> it brings everything up and removing it seals and unmounts. It supersedes the
+> script below for day-to-day operation and for disaster recovery; the script
+> remains the reference for the Docker-based setup and still backs
+> `provision-usb` and `backup`. **[docs/KPC.md](KPC.md)** explains what `kpc` is,
+> where it coexists with `mc`, and where it does not.
+
 Reaching this data is deliberately like a corporate VPN — you *connect* to start
 work and *disconnect* when you are done. A single control script (the reference is
 **[`deploy/external-kms-laptop/adminKP.sh`](../deploy/external-kms-laptop/adminKP.sh)**)
@@ -212,6 +221,11 @@ host is fully isolated from your keys again. Config lives in an env file
 ---
 
 ## Buckets as local folders (FUSE)
+
+> `kpc mount <bucket>` does this from configuration — it resolves the endpoint
+> and credentials and drives `s3fs` for you, so the invocation lives in
+> `kpc.toml` rather than in your shell history. `s3fs` is the implementation
+> underneath, not an alternative; see [docs/KPC.md §4](KPC.md#4-s3fs-is-an-implementation-not-an-alternative).
 
 While connected, your buckets appear as ordinary directories — by default under
 `./buckets/<bucket>` — via [s3fs-fuse](https://github.com/s3fs-fuse/s3fs-fuse):

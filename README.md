@@ -269,6 +269,13 @@ Working & validated with `mc` / `aws` / `s3fs` / `rclone` / `curl`:
   metadata it captures **reads** (`GetObject`, listings) and **refused attempts**
   (`403`, attributed to the identity that was denied), which is what an auditor
   actually asks for. No object content and no credentials are ever written to it.
+- **`kpc`, the custody client** ([`kpc/`](kpc/), manual: **[docs/KPC.md](docs/KPC.md)**):
+  a single binary for what the S3 protocol cannot express — seal state, releasing
+  the key from the USB, the tunnel, and mounting buckets as directories. It **does
+  not replace `mc`**: `mc`/`aws`/`rclone` keep the whole data and admin plane;
+  `kpc` owns the custody half. `kpc enable` brings a deployment up (tunnel +
+  unseal + mount); with `kpc watch`, inserting the USB does it for you and pulling
+  it seals and unmounts. Only needed in custody deployments.
 - TLS/HTTPS, web console, and `s3fs` mount compatibility.
 - **Deployment profiles** (`KP_PROFILE=open|sealed`): `sealed` is a one-word
   regulated posture — the server refuses to start unless TLS + auth + at-rest
