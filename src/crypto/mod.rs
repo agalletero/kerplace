@@ -29,8 +29,12 @@
 //!   shared secret (32 bytes) from decapsulation IS the DEK.
 
 mod provider;
+// `KeyProvider` is public, so the types in its signature must be nameable by an
+// implementor (including test doubles) without reaching into the private module.
+#[allow(unused_imports)]
 pub use provider::{
-    custody_warning, provider_from_env, Dek, FileKeyProvider, KeyProvider, WrappedDek,
+    custody_warning, provider_from_env, Dek, FileKeyProvider, KeyError, KeyPosture, KeyProvider,
+    WrappedDek,
 };
 
 use std::path::Path;
@@ -680,6 +684,13 @@ impl ObjectCipher {
 
 /// Wrap a plaintext reader so it yields the encrypted container stream.
 ///
+/// The per-object DEK is minted **eagerly**, before any reader is handed back, so
+/// a key-provider failure (KMS unreachable, sealed Vault) surfaces as a
+/// caller-visible error — mirroring [`decrypting_reader_checked`] on the read
+/// path. This is load-bearing: minting lazily inside the streaming task meant a
+/// failure dropped the writer, the consumer saw a clean EOF indistinguishable
+/// from an empty body, and a 0-byte object was committed with `200 OK`.
+///
 /// When `ctx.pq` is `Some`, uses `ALG_MLKEM` (post-quantum DEK encapsulation).
 /// Otherwise falls back to `ALG_AES_MASTER`.
 ///
@@ -688,16 +699,20 @@ impl ObjectCipher {
 /// - `ctx`: the server crypto context.
 ///
 /// # Returns
-/// A reader over the `KPE1` container (header + sealed chunks).
-pub fn encrypting_reader(mut plaintext: BodyReader, ctx: CryptoContext) -> BodyReader {
+/// A reader over the `KPE1` container (header + sealed chunks), or
+/// [`CryptoError::Provider`] when the DEK cannot be minted — in which case the
+/// caller must fail the write rather than commit anything.
+pub async fn encrypting_reader(
+    mut plaintext: BodyReader,
+    ctx: CryptoContext,
+) -> Result<BodyReader, CryptoError> {
+    // Mint a fresh DEK already wrapped by the provider's KEK (envelope invariant).
+    // This is the only fallible outbound call the encrypt path makes, so doing it
+    // here — before the reader exists — is what keeps the write fail-closed.
+    let (dek, wrapped) = ctx.provider.new_wrapped_dek().await?;
+
     let (mut writer, reader) = tokio::io::duplex(STREAM_PIPE_BUF);
     tokio::spawn(async move {
-        // Mint a fresh DEK already wrapped by the provider's KEK (envelope invariant).
-        let (dek, wrapped) = match ctx.provider.new_wrapped_dek().await {
-            Ok(pair) => pair,
-            Err(_) => return,
-        };
-
         let mut base_nonce = [0u8; BASE_NONCE_LEN];
         OsRng.fill_bytes(&mut base_nonce);
         let cipher = Aead256::new(dek.expose());
@@ -710,7 +725,7 @@ pub fn encrypting_reader(mut plaintext: BodyReader, ctx: CryptoContext) -> BodyR
         header.extend_from_slice(&wrapped.bytes);
         header.extend_from_slice(&base_nonce);
         if writer.write_all(&header).await.is_err() {
-            return;
+            return; // the consumer went away; nobody left to tell
         }
 
         let mut buf = vec![0u8; CHUNK_SIZE];
@@ -721,7 +736,13 @@ pub fn encrypting_reader(mut plaintext: BodyReader, ctx: CryptoContext) -> BodyR
                 match plaintext.read(&mut buf[filled..]).await {
                     Ok(0) => break,
                     Ok(n) => filled += n,
-                    Err(_) => return,
+                    // The source died mid-object. A duplex cannot carry an error
+                    // to the reader, so at least make it loud: a truncated object
+                    // must never pass for a complete one in silence.
+                    Err(e) => {
+                        tracing::error!("encrypt: source read failed mid-object: {e}");
+                        return;
+                    }
                 }
             }
             if filled == 0 {
@@ -739,7 +760,7 @@ pub fn encrypting_reader(mut plaintext: BodyReader, ctx: CryptoContext) -> BodyR
         }
         let _ = writer.shutdown().await;
     });
-    Box::pin(reader)
+    Ok(Box::pin(reader))
 }
 
 /// Wrap an encrypted-container reader so it yields the decrypted plaintext.
@@ -965,7 +986,12 @@ mod tests {
 
         let src: BodyReader = Box::pin(std::io::Cursor::new(data.clone()));
         let mut sealed = Vec::new();
-        encrypting_reader(src, ctx.clone()).read_to_end(&mut sealed).await.unwrap();
+        encrypting_reader(src, ctx.clone())
+            .await
+            .unwrap()
+            .read_to_end(&mut sealed)
+            .await
+            .unwrap();
 
         // Header records the wrapping alg; the wrapped DEK occupies the header but
         // the plaintext does not appear in the container.
@@ -1043,6 +1069,8 @@ mod tests {
             let src: BodyReader = Box::pin(std::io::Cursor::new(data.clone()));
             let mut sealed = Vec::new();
             encrypting_reader(src, ctx.clone())
+                .await
+                .unwrap()
                 .read_to_end(&mut sealed)
                 .await
                 .unwrap();

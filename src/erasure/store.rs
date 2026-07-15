@@ -1163,8 +1163,13 @@ impl ObjectStore for ErasureStore {
         // is rejected by the node). `lock` stays alive for the whole section.
         crate::cluster::lock::with_fence(lock.fence_ctx(), async move {
             let encrypted = self.should_encrypt(encrypt);
+            // Fail-closed: mint the DEK before touching version state or shards, so
+            // a KMS outage aborts the write with 5xx instead of committing a
+            // 0-byte object and answering 200.
             let src: BodyReader = if encrypted {
                 crypto::encrypting_reader(body, self.crypto.clone())
+                    .await
+                    .map_err(|e| S3Error::Internal(format!("encrypt object: {e}")))?
             } else {
                 body
             };
@@ -1674,8 +1679,12 @@ impl ObjectStore for ErasureStore {
             let etag = format!("{}-{}", hex::encode(Md5::digest(&concat_md5)), parts.len());
             let encrypted = manifest.encrypt;
             let plain = self.pool().drives[sd].open(&assembly).await.map_err(|e| S3Error::Internal(format!("reopen assembly: {e}")))?;
+            // Fail-closed: abort the completion before `write_sharded` if the DEK
+            // cannot be minted; the staged parts stay put for a retry.
             let src: BodyReader = if encrypted {
                 crypto::encrypting_reader(Box::pin(plain), self.crypto.clone())
+                    .await
+                    .map_err(|e| S3Error::Internal(format!("encrypt object: {e}")))?
             } else {
                 Box::pin(plain)
             };

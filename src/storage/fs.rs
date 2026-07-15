@@ -842,8 +842,12 @@ impl ObjectStore for FsStore {
         validate_key(key)?;
         let _lock = self.locks.acquire(&format!("{bucket}/{key}")).await;
         let encrypted = self.should_encrypt(encrypt);
+        // Fail-closed: mint the DEK before staging anything, so a KMS outage
+        // aborts the write instead of storing a 0-byte object and answering 200.
         let body: BodyReader = if encrypted {
             crypto::encrypting_reader(body, self.crypto.clone())
+                .await
+                .map_err(|e| S3Error::Internal(format!("encrypt object: {e}")))?
         } else {
             body
         };
@@ -1223,8 +1227,12 @@ impl ObjectStore for FsStore {
             Box::pin(src_file)
         };
         let encrypted = self.should_encrypt(encrypt);
+        // Fail-closed, mirroring the `decrypting_reader_checked` above: a copy
+        // must not silently produce an empty destination on a KMS outage.
         let to_write: BodyReader = if encrypted {
             crypto::encrypting_reader(plain, self.crypto.clone())
+                .await
+                .map_err(|e| S3Error::Internal(format!("encrypt object: {e}")))?
         } else {
             plain
         };
@@ -1655,8 +1663,11 @@ impl ObjectStore for FsStore {
             let plain_file = File::open(&tmp)
                 .await
                 .map_err(|e| S3Error::Internal(format!("reopen assembly: {e}")))?;
-            let enc_reader =
-                crypto::encrypting_reader(Box::pin(plain_file), self.crypto.clone());
+            // Fail-closed: abort the completion if the DEK cannot be minted, before
+            // the canonical slot is touched; the staged parts survive for a retry.
+            let enc_reader = crypto::encrypting_reader(Box::pin(plain_file), self.crypto.clone())
+                .await
+                .map_err(|e| S3Error::Internal(format!("encrypt object: {e}")))?;
             // ETag here is discarded (the multipart `…-N` ETag is computed separately);
             // the bytes are ciphertext — skip the MD5.
             let (enc_tmp, _etag, _size) = self.stream_to_temp(enc_reader, false).await?;
@@ -2000,6 +2011,79 @@ mod tests {
 
     fn plain_ctx() -> CryptoContext {
         CryptoContext::new_aes(MasterKey::generate())
+    }
+
+    /// A provider that boots fine but cannot mint a DEK — a KMS that went away
+    /// after startup (an unreachable Vault, or one that re-sealed when the
+    /// custody USB was pulled).
+    struct DeadProvider;
+
+    #[async_trait::async_trait]
+    impl crate::crypto::KeyProvider for DeadProvider {
+        fn kind(&self) -> &'static str {
+            "dead"
+        }
+        async fn new_wrapped_dek(
+            &self,
+        ) -> Result<(crate::crypto::Dek, crate::crypto::WrappedDek), crate::crypto::KeyError> {
+            Err(crate::crypto::KeyError::Unavailable("KMS unreachable (test)".into()))
+        }
+        async fn unwrap_dek(
+            &self,
+            _wrapped: &crate::crypto::WrappedDek,
+        ) -> Result<crate::crypto::Dek, crate::crypto::KeyError> {
+            Err(crate::crypto::KeyError::Unavailable("KMS unreachable (test)".into()))
+        }
+        fn wrapped_dek_len(&self) -> usize {
+            32
+        }
+        fn posture(&self) -> crate::crypto::KeyPosture {
+            crate::crypto::KeyPosture {
+                kind: "dead",
+                unattended_boot: true,
+                key_on_host: false,
+                protects: "nothing (test double)",
+                does_not_protect: "anything (test double)",
+            }
+        }
+    }
+
+    /// A key-provider outage must **fail the write**, not silently commit a
+    /// 0-byte object while answering `200 OK`.
+    ///
+    /// This is the regression guard for the fail-open bug: minting the DEK lazily
+    /// inside the streaming task made a KMS failure look like a clean end-of-body,
+    /// so the object was stored empty and the client was told it had succeeded —
+    /// destroying any previous version of that key.
+    #[tokio::test]
+    async fn kms_outage_fails_the_write_and_commits_nothing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let ctx = CryptoContext::new(std::sync::Arc::new(DeadProvider));
+        let s = FsStore::new(tmp.path().to_path_buf(), ctx, true).await.unwrap();
+        s.create_bucket("buck").await.unwrap();
+
+        // A previously-good object, written while the "KMS" still worked, would
+        // live here; the point is that the failed write must not replace it.
+        let res = s
+            .put_object(
+                "buck",
+                "nota.md",
+                reader(b"contenido importante"),
+                "text/markdown".into(),
+                BTreeMap::new(),
+                true,
+            )
+            .await;
+
+        assert!(res.is_err(), "a KMS outage must fail the PUT, got {res:?}");
+
+        // Nothing may be left behind: no 0-byte object, no half-written entry.
+        let listing = s.list_objects_v2("buck", "", None, None, None, 100).await.unwrap();
+        assert!(
+            listing.objects.is_empty(),
+            "a failed write must commit nothing, found {:?}",
+            listing.objects
+        );
     }
 
     /// Create a fresh temp-dir-backed store for a single test (encryption off).
